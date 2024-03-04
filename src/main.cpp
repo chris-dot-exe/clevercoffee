@@ -49,7 +49,6 @@ hw_timer_t *timer = NULL;
     #include <Wire.h>
 #endif
 
-
 #if OLED_DISPLAY == 3
 #include <SPI.h>
 #endif
@@ -464,6 +463,19 @@ const unsigned long intervalDisplay = 500;
 #include "powerHandler.h"
 #include "steamHandler.h"
 #include "scaleHandler.h"
+
+// FIXME
+#if (FEATURE_ROTARY_MENU == 1)
+    #include <LCDMenuLib2.h>
+    // TODO only if input type is encoder
+    #include <ESP32Encoder.h>
+    ESP32Encoder encoder;
+    #include "button.h"
+    button_event_t ev;
+    QueueHandle_t button_events = button_init(PIN_BIT(PIN_ROTARY_SW));
+    boolean menuOpen = false;
+    #include "menu.h"
+#endif
 
 // Emergency stop if temp is too high
 void testEmergencyStop() {
@@ -2153,6 +2165,29 @@ void setup() {
         }
     }
 
+    // FIXME
+    #if(FEATURE_ROTARY_MENU == 1)
+        pinMode(PIN_ROTARY_DT, INPUT_PULLUP);
+        pinMode(PIN_ROTARY_CLK, INPUT_PULLUP);
+        pinMode(PIN_ROTARY_SW, INPUT_PULLUP);
+
+        encoder.attachFullQuad(PIN_ROTARY_DT, PIN_ROTARY_CLK);
+        encoder.setCount(0);
+
+        setupMenu();
+    #endif
+    // FIXME
+    #if(FEATURE_ROTARY_MENU == 1)
+        pinMode(PIN_ROTARY_DT, INPUT_PULLUP);
+        pinMode(PIN_ROTARY_CLK, INPUT_PULLUP);
+        pinMode(PIN_ROTARY_SW, INPUT_PULLUP);
+
+        encoder.attachFullQuad(PIN_ROTARY_DT, PIN_ROTARY_CLK);
+        encoder.setCount(0);
+
+        setupMenu();
+    #endif
+
     #if OLED_DISPLAY != 0
         u8g2.setI2CAddress(oled_i2c * 2);
         u8g2.begin();
@@ -2249,6 +2284,29 @@ void setup() {
 void loop() {
     looppid();
     loopLED();
+
+    // FIXME
+    #if FEATURE_ROTARY_MENU == 1
+        if (!menuOpen) {
+            if (xQueueReceive(button_events, &ev, 1/portTICK_PERIOD_MS)) {
+                if (ev.event == BUTTON_UP) {
+                    menuOpen = true;
+                    #if ROTARY_MENU_DEBUG == 1
+                        debugPrintf("Opening Menu!\n");
+                    #endif
+                    displayMenu();
+                }
+            }
+        }
+
+        if (menuOpen) {
+            LCDML.loop();
+        }
+    #endif
+
+    if (FEATURE_TEMP_LED) {
+        loopLED();
+    }
 
     if (FEATURE_WATER_SENS == 1) {
         loopWater();
@@ -2374,19 +2432,26 @@ void looppid() {
 
     // Check if PID should run or not. If not, set to manual and force output to zero
 #if OLED_DISPLAY != 0
-    unsigned long currentMillisDisplay = millis();
-
-    if (currentMillisDisplay - previousMillisDisplay >= 100) {
-        displayShottimer();
-    }
-
-    if (currentMillisDisplay - previousMillisDisplay >= intervalDisplay) {
-        previousMillisDisplay = currentMillisDisplay;
-    #if DISPLAYTEMPLATE < 20  // not using vertical template
-        displayMachineState();
+    // FIXME
+    #if FEATURE_ROTARY_MENU == 1 // only draw the display template if the menu is not open
+    if (!menuOpen) {
     #endif
-        printScreen();  // refresh display
+        unsigned long currentMillisDisplay = millis();
+
+        if (currentMillisDisplay - previousMillisDisplay >= 100) {
+            displayShottimer();
+        }
+
+        if (currentMillisDisplay - previousMillisDisplay >= intervalDisplay) {
+            previousMillisDisplay = currentMillisDisplay;
+        #if DISPLAYTEMPLATE < 20  // not using vertical template
+            displayMachineState();
+        #endif
+            printScreen();  // refresh display
+        }
+    #if FEATURE_ROTARY_MENU == 1
     }
+    #endif
 #endif
 
     if (machineState == kPidOffline || machineState == kWaterEmpty || machineState == kSensorError || machineState == kEmergencyStop || machineState == kEepromError || machineState == kStandby || brewPIDDisabled) {

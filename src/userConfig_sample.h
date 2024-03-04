@@ -81,6 +81,11 @@ enum MACHINE {
 #define FLUSHTIME 10000            // time in ms the 3-way valve is open -> backflush
 #define MAXFLUSHCYCLES 5           // number of cycles the backflush should run, 0 = disabled
 
+// FIXME
+// Rotary Encoder Menu
+#define FEATURE_ROTARY_MENU 0              // 0 = off, 1 = on
+#define ROTARY_MENU_DEBUG 0        // 0 = off, 1 = on
+
 // PlatformIO OTA
 #define OTA true                   // true = OTA activated, false = OTA deactivated
 #define OTAPASS "otapass"          // Password for OTA updates
@@ -103,4 +108,3 @@ enum MACHINE {
 // Log level for serial console, valid options (all with Logger::Level:: prefix) are:
 // TRACE, DEBUG, INFO, WARNING, ERROR, FATAL
 #define LOGLEVEL Logger::Level::INFO
-
