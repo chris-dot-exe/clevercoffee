@@ -227,7 +227,10 @@ void toggleUsePonM(uint8_t param) {
 }
 
 void toggleUseBrewPid(uint8_t param) {
-    switchBoolean(&useBDPID, useBDPID, LANGSTRING_MENU_PID_BD_ON, STO_ITEM_USE_BD_PID);
+    //int status = flipUintValue(pidON);
+    switchBoolean(&pidON, pidON, LANGSTRING_MENU_PID_BD_ON, STO_ITEM_PID_ON);
+    //setPidStatus(status);
+    LOGF(DEBUG, "Toggle PID state: %d\n", pidON);
 }
 
 void menuBack(uint8_t param) {
