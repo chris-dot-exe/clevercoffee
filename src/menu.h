@@ -243,6 +243,11 @@ void menuClose(uint8_t param) {
     }
 }
 
+void togglePid(uint8_t param) {
+    setPidStatus(param);
+    menuClose(0);
+}
+
 boolean checkOnlyPid() {return ONLYPID == 0;}
 boolean checkBackflushEnabled() { return backflushOn == 1; }
 boolean checkBackflushDisabled() { return backflushOn == 0; }
@@ -258,69 +263,76 @@ boolean checkPonMDisabled() { return usePonM == 0; }
 boolean checkBrewPIDEnabled() { return useBDPID == 1; }
 boolean checkBrewPIDDisabled() { return useBDPID == 0; }
 
+boolean checkPIDEnabled() { 
+    LOG(DEBUG, "pidON == 1");
+    return pidON == 1;
+    }
+boolean checkPIDdisabled() { 
+    LOG(DEBUG, "pidON == 0");
+    return pidON == 0;
+    }
 
 
-// Temperatures
-LCDML_add(0, LCDML_0, 1, LANGSTRING_MENU_TEMPERATURE, NULL); 
-LCDML_add(1, LCDML_0_1, 1, LANGSTRING_MENU_BREWSETPOINT, changeBrewTemp); 
-LCDML_add(2, LCDML_0_1, 2, LANGSTRING_MENU_STEAMSETPOINT, changeSteamTemp); 
-LCDML_add(3, LCDML_0_1, 3, LANGSTRING_MENU_TEMP_OFFSET, changeTempOffset); 
-LCDML_add(4, LCDML_0_1, 4, LANGSTRING_MENU_BACK, menuBack); 
+// Main Menu
+LCDML_add(0, LCDML_0, 1, LANGSTRING_MENU_BREWSETPOINT, changeBrewTemp); 
+LCDML_add(1, LCDML_0, 2, LANGSTRING_MENU_STEAMSETPOINT, changeSteamTemp); 
 
-// Times and Weights
-LCDML_add(5, LCDML_0, 2, LANGSTRING_MENU_TIMES_AND_WEIGHTS, NULL); 
-LCDML_add(6, LCDML_0_2, 1, LANGSTRING_MENU_BREWTIME, changeBrewTime); 
-LCDML_addAdvanced(7, LCDML_0_2, 2, checkOnlyPid, LANGSTRING_MENU_PREINFUSIONTIME, changePreinfusionTime, 0, _LCDML_TYPE_default); 
-LCDML_addAdvanced(8, LCDML_0_2, 3, checkOnlyPid, LANGSTRING_MENU_PREINFUSIONPAUSETIME, changePreinfusionPauseTime, 0, _LCDML_TYPE_default); 
-LCDML_addAdvanced(9, LCDML_0_2, 4, checkBrewModeScale, LANGSTRING_MENU_WEIGHTSETPOINT, changeTargetWeight, 0, _LCDML_TYPE_default); 
-LCDML_add(10, LCDML_0_2, 5, LANGSTRING_MENU_BACK, menuBack); 
+LCDML_addAdvanced(2, LCDML_0, 3, checkOnlyPid, LANGSTRING_MENU_PREINFUSIONTIME, changePreinfusionTime, 0, _LCDML_TYPE_default); 
+LCDML_addAdvanced(3, LCDML_0, 4, checkOnlyPid, LANGSTRING_MENU_PREINFUSIONPAUSETIME, changePreinfusionPauseTime, 0, _LCDML_TYPE_default); 
 
-// Machine settings
-LCDML_add(11, LCDML_0, 3, LANGSTRING_MENU_MACHINESETTINGS, NULL); 
-// BACKFLUSH
-LCDML_addAdvanced(12, LCDML_0_3, 1, checkOnlyPid, LANGSTRING_MENU_BACKFLUSH, NULL, 0, _LCDML_TYPE_default); 
-LCDML_addAdvanced(13, LCDML_0_3_1, 1, checkBackflushDisabled, LANGSTRING_MENU_ON, toggleBackflush, 0, _LCDML_TYPE_default); 
-LCDML_addAdvanced(14, LCDML_0_3_1, 2, checkBackflushEnabled, LANGSTRING_MENU_OFF, toggleBackflush, 0, _LCDML_TYPE_default); 
-LCDML_add(15, LCDML_0_3_1, 3, LANGSTRING_MENU_BACK, menuBack); 
-// STANDBY TIMER
-LCDML_add(16, LCDML_0_3, 2, LANGSTRING_MENU_STANDBY_TIMER, NULL); 
-LCDML_addAdvanced(17, LCDML_0_3_2, 1, checkStandbyDisabled, LANGSTRING_MENU_ON, toggleStandbyTimer, 0, _LCDML_TYPE_default); 
-LCDML_addAdvanced(18, LCDML_0_3_2, 2, checkStandbyEnabled, LANGSTRING_MENU_OFF, toggleStandbyTimer, 0, _LCDML_TYPE_default); 
-LCDML_addAdvanced(19, LCDML_0_3_2, 3, checkStandbyEnabled, LANGSTRING_MENU_STANDBY_TIMER_TIME, changeStandbyTime, 0, _LCDML_TYPE_default); 
-LCDML_add(20, LCDML_0_3_2, 4, LANGSTRING_MENU_BACK, menuBack); 
-LCDML_add(21, LCDML_0_3, 3, LANGSTRING_MENU_BACK, menuBack); 
+LCDML_add(4, LCDML_0, 5, LANGSTRING_MENU_PID_BD_ON, NULL); 
+LCDML_addAdvanced(5, LCDML_0_5, 1, checkPIDdisabled, LANGSTRING_MENU_ON, togglePid, 1, _LCDML_TYPE_default); 
+LCDML_addAdvanced(6, LCDML_0_5, 2, checkPIDEnabled, LANGSTRING_MENU_OFF, togglePid, 0, _LCDML_TYPE_default); 
 
+LCDML_add(7, LCDML_0, 6, LANGSTRING_MENU_BREWTIME, changeBrewTime); 
+LCDML_addAdvanced(8, LCDML_0, 7, checkBrewModeScale, LANGSTRING_MENU_WEIGHTSETPOINT, changeTargetWeight, 0, _LCDML_TYPE_default); 
+
+LCDML_addAdvanced(9, LCDML_0, 8, checkStandbyDisabled, LANGSTRING_MENU_STANDBY_TIMER, toggleStandbyTimer, 0, _LCDML_TYPE_default); 
+LCDML_addAdvanced(10, LCDML_0, 9, checkStandbyEnabled, LANGSTRING_MENU_STANDBY_TIMER, toggleStandbyTimer, 0, _LCDML_TYPE_default); 
+LCDML_addAdvanced(11, LCDML_0, 10, checkStandbyEnabled, LANGSTRING_MENU_STANDBY_TIMER_TIME, changeStandbyTime, 0, _LCDML_TYPE_default); 
+
+
+// Maintenance
+LCDML_addAdvanced(12, LCDML_0, 11, checkOnlyPid, LANGSTRING_MENU_MAINTENANCE, NULL, 0, _LCDML_TYPE_default); 
+LCDML_addAdvanced(13, LCDML_0_11, 1, checkOnlyPid, LANGSTRING_MENU_BACKFLUSH, NULL, 0, _LCDML_TYPE_default); 
+LCDML_addAdvanced(14, LCDML_0_11_1, 2, checkBackflushDisabled, LANGSTRING_MENU_ON, toggleBackflush, 0, _LCDML_TYPE_default); 
+LCDML_addAdvanced(15, LCDML_0_11_1, 3, checkBackflushEnabled, LANGSTRING_MENU_OFF, toggleBackflush, 0, _LCDML_TYPE_default); 
+LCDML_add(16, LCDML_0_11_1, 4, LANGSTRING_MENU_BACK, menuBack); 
+
+// Advanced Menu
+LCDML_add(17, LCDML_0, 12, LANGSTRING_MENU_ADVANCED, NULL); 
+LCDML_add(18, LCDML_0_12, 1, LANGSTRING_MENU_TEMP_OFFSET, changeTempOffset); 
 // PID Parameters
-LCDML_add(22, LCDML_0, 4, LANGSTRING_MENU_PIDPARAMS, NULL); 
-LCDML_add(23, LCDML_0_4, 1, LANGSTRING_MENU_PID_KP, changePidKp); 
-LCDML_add(24, LCDML_0_4, 2, LANGSTRING_MENU_PID_TN, changePidTn); 
-LCDML_add(25, LCDML_0_4, 3, LANGSTRING_MENU_PID_TV, changePidTv); 
-LCDML_add(26, LCDML_0_4, 4, LANGSTRING_MENU_PID_I_MAX, changePidIMax); 
-LCDML_add(27, LCDML_0_4, 5, LANGSTRING_MENU_STEAM_KP, changeSteamKp); 
+LCDML_add(19, LCDML_0_12, 2, LANGSTRING_MENU_PIDPARAMS, NULL); 
+LCDML_add(20, LCDML_0_12_2, 1, LANGSTRING_MENU_PID_KP, changePidKp); 
+LCDML_add(21, LCDML_0_12_2, 2, LANGSTRING_MENU_PID_TN, changePidTn); 
+LCDML_add(22, LCDML_0_12_2, 3, LANGSTRING_MENU_PID_TV, changePidTv); 
+LCDML_add(23, LCDML_0_12_2, 4, LANGSTRING_MENU_PID_I_MAX, changePidIMax); 
+LCDML_add(24, LCDML_0_12_2, 5, LANGSTRING_MENU_STEAM_KP, changeSteamKp); 
+LCDML_add(41, LCDML_0_12_2, 6, LANGSTRING_MENU_BACK, menuBack); 
 // PONM
-LCDML_add(28, LCDML_0_4, 6, LANGSTRING_MENU_START_USE_PONM, NULL); 
-LCDML_addAdvanced(29, LCDML_0_4_6, 1, checkPonMDisabled, LANGSTRING_MENU_ON, toggleUsePonM, 0, _LCDML_TYPE_default); 
-LCDML_addAdvanced(30, LCDML_0_4_6, 2, checkPonMEnabled, LANGSTRING_MENU_OFF, toggleUsePonM, 0, _LCDML_TYPE_default); 
-LCDML_addAdvanced(31, LCDML_0_4_6, 3, checkPonMEnabled, LANGSTRING_MENU_START_KP, changePonMKp, 0, _LCDML_TYPE_default); 
-LCDML_addAdvanced(32, LCDML_0_4_6, 4, checkPonMEnabled, LANGSTRING_MENU_START_TN, changePonMTn, 0, _LCDML_TYPE_default); 
-LCDML_add(33, LCDML_0_4_6, 5, LANGSTRING_MENU_BACK, menuBack); 
+LCDML_add(25, LCDML_0_12, 6, LANGSTRING_MENU_START_USE_PONM, NULL); 
+LCDML_addAdvanced(26, LCDML_0_12_6, 1, checkPonMDisabled, LANGSTRING_MENU_ON, toggleUsePonM, 0, _LCDML_TYPE_default); 
+LCDML_addAdvanced(27, LCDML_0_12_6, 2, checkPonMEnabled, LANGSTRING_MENU_OFF, toggleUsePonM, 0, _LCDML_TYPE_default); 
+LCDML_addAdvanced(28, LCDML_0_12_6, 3, checkPonMEnabled, LANGSTRING_MENU_START_KP, changePonMKp, 0, _LCDML_TYPE_default); 
+LCDML_addAdvanced(29, LCDML_0_12_6, 4, checkPonMEnabled, LANGSTRING_MENU_START_TN, changePonMTn, 0, _LCDML_TYPE_default); 
+LCDML_add(30, LCDML_0_12_6, 5, LANGSTRING_MENU_BACK, menuBack); 
 // Brew PID
-LCDML_add(34, LCDML_0_4, 7, LANGSTRING_MENU_PID_BD_ON, NULL); 
-LCDML_addAdvanced(35, LCDML_0_4_7, 1, checkBrewPIDDisabled, LANGSTRING_MENU_ON, toggleUseBrewPid, 0, _LCDML_TYPE_default); 
-LCDML_addAdvanced(36, LCDML_0_4_7, 2, checkBrewPIDEnabled, LANGSTRING_MENU_OFF, toggleUseBrewPid, 0, _LCDML_TYPE_default); 
-LCDML_addAdvanced(37, LCDML_0_4_7, 3, checkBrewPIDEnabled, LANGSTRING_MENU_PID_BD_DELAY, changeBDDelay, 0, _LCDML_TYPE_default); 
-LCDML_addAdvanced(38, LCDML_0_4_7, 4, checkBrewPIDEnabled, LANGSTRING_MENU_PID_BD_KP, changeBDKp, 0, _LCDML_TYPE_default); 
-LCDML_addAdvanced(39, LCDML_0_4_7, 5, checkBrewPIDEnabled, LANGSTRING_MENU_PID_BD_TN, changeBDTn, 0, _LCDML_TYPE_default); 
-LCDML_addAdvanced(40, LCDML_0_4_7, 6, checkBrewPIDEnabled, LANGSTRING_MENU_PID_BD_TV, changeBDTv, 0, _LCDML_TYPE_default); 
-LCDML_addAdvanced(41, LCDML_0_4_7, 7, checkBrewPIDEnabled, LANGSTRING_MENU_PID_BD_TIME, changeBDTime, 0, _LCDML_TYPE_default); 
-LCDML_addAdvanced(42, LCDML_0_4_7, 8, checkBrewPIDEnabled, LANGSTRING_MENU_PID_BD_SENSITIVITY, changeBDSensitivity, 0, _LCDML_TYPE_default); 
-LCDML_add(43, LCDML_0_4_7, 9, LANGSTRING_MENU_BACK, menuBack); 
-LCDML_add(44, LCDML_0_4, 8, LANGSTRING_MENU_BACK, menuBack); 
+LCDML_add(31, LCDML_0_12, 7, LANGSTRING_MENU_PID_BD_ON, NULL); 
+LCDML_addAdvanced(32, LCDML_0_12_7, 3, checkBrewPIDEnabled, LANGSTRING_MENU_PID_BD_DELAY, changeBDDelay, 0, _LCDML_TYPE_default); 
+LCDML_addAdvanced(33, LCDML_0_12_7, 4, checkBrewPIDEnabled, LANGSTRING_MENU_PID_BD_KP, changeBDKp, 0, _LCDML_TYPE_default); 
+LCDML_addAdvanced(34, LCDML_0_12_7, 5, checkBrewPIDEnabled, LANGSTRING_MENU_PID_BD_TN, changeBDTn, 0, _LCDML_TYPE_default); 
+LCDML_addAdvanced(35, LCDML_0_12_7, 6, checkBrewPIDEnabled, LANGSTRING_MENU_PID_BD_TV, changeBDTv, 0, _LCDML_TYPE_default); 
+LCDML_addAdvanced(36, LCDML_0_12_7, 7, checkBrewPIDEnabled, LANGSTRING_MENU_PID_BD_TIME, changeBDTime, 0, _LCDML_TYPE_default); 
+LCDML_addAdvanced(37, LCDML_0_12_7, 8, checkBrewPIDEnabled, LANGSTRING_MENU_PID_BD_SENSITIVITY, changeBDSensitivity, 0, _LCDML_TYPE_default); 
+LCDML_add(38, LCDML_0_12_7, 9, LANGSTRING_MENU_BACK, menuBack); 
+LCDML_add(39, LCDML_0_12, 8, LANGSTRING_MENU_BACK, menuBack); 
 
-LCDML_add(45, LCDML_0, 5, LANGSTRING_MENU_CLOSE, menuClose); 
+LCDML_add(40, LCDML_0, 13, LANGSTRING_MENU_CLOSE, menuClose);
+
 
 // This value has to be the same as the last menu element
-#define _LCDML_DISP_cnt 45
+#define _LCDML_DISP_cnt 41
 LCDML_createMenu(_LCDML_DISP_cnt);
 
 // Menu aborts via longpress have to be "debounced" heavily to feel natural
@@ -417,7 +429,7 @@ void displayMenu() {
                     if(tmp->checkType_menu() == true) {
                         // display normal content
                         LCDML_getContent(content_text, tmp->getID());
-                        LOGF(DEBUG,"%s %s\n", n == LCDML.MENU_getCursorPos() ? checked : check, content_text);
+                        LOGF(DEBUG,"%s %s", n == LCDML.MENU_getCursorPos() ? checked : check, content_text);
                     }
                     else {
                         if(tmp->checkType_dynParam()) {

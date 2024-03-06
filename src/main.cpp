@@ -464,7 +464,7 @@ const unsigned long intervalDisplay = 500;
 #include "steamHandler.h"
 #include "scaleHandler.h"
 
-#if (FEATURE_MENU == 1)
+#if (FEATURE_MENU == 1 && OLED_DISPLAY != 0)
     #include <LCDMenuLib2.h>
     #include "button.h"
     // TODO only if input type is encoder
@@ -2174,7 +2174,7 @@ void setup() {
         }
     }
   
-    #if(FEATURE_MENU == 1)
+    #if(FEATURE_MENU == 1 && OLED_DISPLAY != 0)
         #if (MENU_INPUT == 0) 
             pinMode(PIN_ROTARY_DT, INPUT_PULLUP);
             pinMode(PIN_ROTARY_CLK, INPUT_PULLUP);
@@ -2284,18 +2284,18 @@ void setup() {
 void loop() {
     looppid();
 
-    #if FEATURE_MENU == 1
-            if (!menuOpen) {
-                if (xQueueReceive(button_events, &ev, 1/portTICK_PERIOD_MS)) {
-                    if (ev.pin == PIN_MENU_ENTER && ev.event == BUTTON_UP) {
-                        menuOpen = true;
-                        #if MENU_DEBUG == 1
-                            LOG(DEBUG, "Opening Menu!\n");
-                        #endif
-                        displayMenu();
-                    }
+    #if (FEATURE_MENU == 1  && OLED_DISPLAY != 0)
+        if (!menuOpen) {
+            if (xQueueReceive(button_events, &ev, 1/portTICK_PERIOD_MS)) {
+                if (ev.pin == PIN_MENU_ENTER && ev.event == BUTTON_UP) {
+                    menuOpen = true;
+                    #if MENU_DEBUG == 1
+                        LOG(DEBUG, "Opening Menu!\n");
+                    #endif
+                    displayMenu();
                 }
             }
+        }
 
         if (menuOpen) {
             LCDML.loop();
@@ -2428,7 +2428,7 @@ void looppid() {
         shottimerscale();
     #endif
 
-    // Check if PID should run or not. If not, set to manual and force output to zero
+    
 #if OLED_DISPLAY != 0
     #if FEATURE_MENU == 1 // only draw the display template if the menu is not open
     if (!menuOpen) {
@@ -2451,6 +2451,7 @@ void looppid() {
     #endif
 #endif
 
+    // Check if PID should run or not. If not, set to manual and force output to zero
     if (machineState == kPidOffline || machineState == kWaterEmpty || machineState == kSensorError || machineState == kEmergencyStop || machineState == kEepromError || machineState == kStandby || brewPIDDisabled) {
         if (pidMode == 1) {
             // Force PID shutdown

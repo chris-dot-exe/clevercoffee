@@ -72,6 +72,10 @@ static const char *langstring_backflush_finish = "um zu beenden...";
 #define LANGSTRING_MENU_PID_BD_SENSITIVITY "PID BD Sensitiv."
 #define LANGSTRING_MENU_ON "An"
 #define LANGSTRING_MENU_OFF "Aus"
+#define LANGSTRING_MENU_MAINTENANCE "Wartung"
+#define LANGSTRING_MENU_ADVANCED "Erweiterte Einst."
+#define LANGSTRING_MENU_PID "PID"
+
 static const char *langstring_pressToSave[] = {"Klicken zum Speichern,", "Halten zum Abbrechen."};
 static const char *langstring_autoclose[] = {"Menue schliesst sich in", "2 Sekunden automatisch."};
 
