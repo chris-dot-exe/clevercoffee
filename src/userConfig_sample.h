@@ -43,6 +43,11 @@ enum MACHINE {
 
 #define LANGUAGE 0                 // LANGUAGE = 0 (DE), LANGUAGE = 1 (EN), LANGUAGE = 2 (ES)
 
+// Rotary Encoder Menu
+#define FEATURE_MENU 0             // 0 = off, 1 = on
+#define MENU_INPUT 1               // 0 = Rotary Encoder & Button, 1 = 3 Buttons (Up, Down, Enter)
+#define MENU_DEBUG 0               // 0 = off, 1 = on
+
 // Connectivity
 #define CONNECTMODE 1              // 0 = offline 1 = WIFI-MODE
 #define HOSTNAME "silvia"
@@ -76,15 +81,12 @@ enum MACHINE {
 #define SCALE_SAMPLES 2            // Load cell sample rate
 #define SCALE_TYPE 0               // 1 = Only a single HX711 with two channels, 0 = one HX711 per load cell
 
+
+
 // Backflush values
 #define FILLTIME 5000              // time in ms the pump is running
 #define FLUSHTIME 10000            // time in ms the 3-way valve is open -> backflush
 #define MAXFLUSHCYCLES 5           // number of cycles the backflush should run, 0 = disabled
-
-// FIXME
-// Rotary Encoder Menu
-#define FEATURE_ROTARY_MENU 0              // 0 = off, 1 = on
-#define ROTARY_MENU_DEBUG 0        // 0 = off, 1 = on
 
 // PlatformIO OTA
 #define OTA true                   // true = OTA activated, false = OTA deactivated

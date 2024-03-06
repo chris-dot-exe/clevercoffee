@@ -293,7 +293,7 @@ float inX = 0, inY = 0, inOld = 0, inSum = 0;   // used for filterPressureValue(
 int signalBars = 0;                             // used for getSignalStrength()
 boolean brewDetected = 0;
 boolean setupDone = false;
-int backflushOn = 0;                            // 1 = backflush mode active
+uint8_t backflushOn = 0;                            // 1 = backflush mode active
 int flushCycles = 0;                            // number of active flush cycles
 
 int backflushState = 10;
@@ -464,15 +464,20 @@ const unsigned long intervalDisplay = 500;
 #include "steamHandler.h"
 #include "scaleHandler.h"
 
-// FIXME
-#if (FEATURE_ROTARY_MENU == 1)
+#if (FEATURE_MENU == 1)
     #include <LCDMenuLib2.h>
-    // TODO only if input type is encoder
-    #include <ESP32Encoder.h>
-    ESP32Encoder encoder;
     #include "button.h"
+    // TODO only if input type is encoder
+    #if (MENU_INPUT == 0)
+        #include <ESP32Encoder.h>
+        ESP32Encoder encoder;
+        QueueHandle_t button_events = button_init(PIN_BIT(PIN_ROTARY_SW));
+    
+    #elif (MENU_INPUT == 1)
+        QueueHandle_t button_events = button_init(PIN_BIT(PIN_MENU_ENTER) | PIN_BIT(PIN_MENU_UP) | PIN_BIT(PIN_MENU_DOWN));
+    #endif
+
     button_event_t ev;
-    QueueHandle_t button_events = button_init(PIN_BIT(PIN_ROTARY_SW));
     boolean menuOpen = false;
     #include "menu.h"
 #endif
@@ -2108,6 +2113,10 @@ void setup() {
 
     storageSetup();
 
+    // Start the logger
+    Logger::begin();
+    Logger::setLevel(LOGLEVEL);
+
     if (optocouplerType == HIGH) {
         optocouplerOn = HIGH;
         optocouplerOff = LOW;
@@ -2164,27 +2173,21 @@ void setup() {
             waterSensPin = new GPIOPin(PIN_WATERSENSOR, GPIOPin::IN_PULLDOWN);
         }
     }
+  
+    #if(FEATURE_MENU == 1)
+        #if (MENU_INPUT == 0) 
+            pinMode(PIN_ROTARY_DT, INPUT_PULLUP);
+            pinMode(PIN_ROTARY_CLK, INPUT_PULLUP);
+            pinMode(PIN_ROTARY_SW, INPUT_PULLUP);
 
-    // FIXME
-    #if(FEATURE_ROTARY_MENU == 1)
-        pinMode(PIN_ROTARY_DT, INPUT_PULLUP);
-        pinMode(PIN_ROTARY_CLK, INPUT_PULLUP);
-        pinMode(PIN_ROTARY_SW, INPUT_PULLUP);
+            encoder.attachFullQuad(PIN_ROTARY_DT, PIN_ROTARY_CLK);
+            encoder.setCount(0);
 
-        encoder.attachFullQuad(PIN_ROTARY_DT, PIN_ROTARY_CLK);
-        encoder.setCount(0);
-
-        setupMenu();
-    #endif
-    // FIXME
-    #if(FEATURE_ROTARY_MENU == 1)
-        pinMode(PIN_ROTARY_DT, INPUT_PULLUP);
-        pinMode(PIN_ROTARY_CLK, INPUT_PULLUP);
-        pinMode(PIN_ROTARY_SW, INPUT_PULLUP);
-
-        encoder.attachFullQuad(PIN_ROTARY_DT, PIN_ROTARY_CLK);
-        encoder.setCount(0);
-
+        #elif(MENU_INPUT == 1)
+            pinMode(PIN_MENU_ENTER, INPUT_PULLUP);
+            pinMode(PIN_MENU_UP, INPUT_PULLUP);
+            pinMode(PIN_MENU_DOWN, INPUT_PULLUP);
+        #endif
         setupMenu();
     #endif
 
@@ -2271,9 +2274,6 @@ void setup() {
 
     enableTimer1();
 
-    // Start the logger
-    Logger::begin();
-    Logger::setLevel(LOGLEVEL);
 
     double fsUsage = ((double)LittleFS.usedBytes() / LittleFS.totalBytes()) * 100;
     LOGF(INFO, "LittleFS: %d%% (used %ld bytes from %ld bytes)",
@@ -2283,28 +2283,26 @@ void setup() {
 
 void loop() {
     looppid();
-    loopLED();
 
-    // FIXME
-    #if FEATURE_ROTARY_MENU == 1
-        if (!menuOpen) {
-            if (xQueueReceive(button_events, &ev, 1/portTICK_PERIOD_MS)) {
-                if (ev.event == BUTTON_UP) {
-                    menuOpen = true;
-                    #if ROTARY_MENU_DEBUG == 1
-                        debugPrintf("Opening Menu!\n");
-                    #endif
-                    displayMenu();
+    #if FEATURE_MENU == 1
+            if (!menuOpen) {
+                if (xQueueReceive(button_events, &ev, 1/portTICK_PERIOD_MS)) {
+                    if (ev.pin == PIN_MENU_ENTER && ev.event == BUTTON_UP) {
+                        menuOpen = true;
+                        #if MENU_DEBUG == 1
+                            LOG(DEBUG, "Opening Menu!\n");
+                        #endif
+                        displayMenu();
+                    }
                 }
             }
-        }
 
         if (menuOpen) {
             LCDML.loop();
         }
     #endif
 
-    if (FEATURE_TEMP_LED) {
+    if (FEATURE_STATUS_LED == 1 || FEATURE_BREW_LED == 1) {
         loopLED();
     }
 
@@ -2432,8 +2430,7 @@ void looppid() {
 
     // Check if PID should run or not. If not, set to manual and force output to zero
 #if OLED_DISPLAY != 0
-    // FIXME
-    #if FEATURE_ROTARY_MENU == 1 // only draw the display template if the menu is not open
+    #if FEATURE_MENU == 1 // only draw the display template if the menu is not open
     if (!menuOpen) {
     #endif
         unsigned long currentMillisDisplay = millis();
@@ -2449,7 +2446,7 @@ void looppid() {
         #endif
             printScreen();  // refresh display
         }
-    #if FEATURE_ROTARY_MENU == 1
+    #if FEATURE_MENU == 1
     }
     #endif
 #endif

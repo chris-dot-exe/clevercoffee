@@ -19,7 +19,10 @@
 
 #define PIN_ROTARY_DT 4         // Rotary encoder data pin
 #define PIN_ROTARY_CLK 3        // Rotary encoder clock pin
-#define PIN_ROTARY_SW 5         // Rotary encoder switch
+#define PIN_ROTARY_SW  5         // Rotary encoder switch
+#define PIN_MENU_ENTER  PIN_ROTARY_SW
+#define PIN_MENU_UP PIN_ROTARY_DT
+#define PIN_MENU_DOWN PIN_ROTARY_CLK
 
 // Sensors
 #define PIN_TEMPSENSOR 16

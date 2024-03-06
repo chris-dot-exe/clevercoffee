@@ -92,7 +92,7 @@ int writeSysParamsToStorage(void);
 #define STANDBY_MODE_TIME_MIN 30
 #define STANDBY_MODE_TIME_MAX 120
 
-#if FEATURE_ROTARY_MENU == 1
+#if FEATURE_MENU == 1
     #define ENCODER_CLICKS_PER_NOTCH 4
 
     // Menu position and size
@@ -114,12 +114,12 @@ int writeSysParamsToStorage(void);
     static const int _LCDML_DISP_h = SCREEN_HEIGHT;
 
     // Font settings
-    #define _LCDML_DISP_font u8g_font_6x11
+    #define _LCDML_DISP_font u8g2_font_profont11_tf
     #define _LCDML_DISP_font_w 4
     #define _LCDML_DISP_font_h 11
 
     // Cursor settings
-    #define _LCDML_DISP_cursor_char "X"
+    #define _LCDML_DISP_cursor_char ">"
     #define _LCDML_DISP_cur_space_before 2
     #define _LCDML_DISP_cur_space_behind 4
 #endif

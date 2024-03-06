@@ -19,6 +19,11 @@ void menuBack(uint8_t param);
 void menuClose(uint8_t param);
 void setupMenu();
 
+#if (MENU_DEBUG)
+const char check[4] = "( )";
+const char checked[4] = "(X)";
+#endif
+
 LCDMenuLib2_menu LCDML_0(255, 0, 0, NULL, NULL);
 LCDMenuLib2 LCDML(LCDML_0, _LCDML_DISP_rows, _LCDML_DISP_cols, displayMenu, clearMenu, menuControls);
 
@@ -26,16 +31,21 @@ double menuRotaryLast = 0;
 double initialValue = 0;
 int last = 0;
 
+
 void changeNumericalSetup(double value, const char* readableName, const char* unit) {
     if(LCDML.FUNC_setup()) {
+        #if (MENU_INPUT == 0)
         menuRotaryLast = encoder.getCount() / ENCODER_CLICKS_PER_NOTCH;
+        #endif
         initialValue = value;
 
         displayNumericalMenuSettingWithUnit(initialValue, readableName, unit);
+        
     }
 }
 
 void changeNumericalLoop(const char* readableName, const char* unit) {
+    #if (MENU_INPUT == 0)
     int32_t pos = encoder.getCount() / ENCODER_CLICKS_PER_NOTCH;
     double diff = static_cast<double>(pos - menuRotaryLast) / 10.0;
 
@@ -44,16 +54,24 @@ void changeNumericalLoop(const char* readableName, const char* unit) {
         displayNumericalMenuSettingWithUnit(initialValue, readableName, unit);
         menuRotaryLast = pos;
     }
+    #elif (MENU_INPUT == 1)
+        if (LCDML.BT_checkUp()) {
+            initialValue += 0.1;
+        }
+        else if (LCDML.BT_checkDown()) {
+            initialValue -= 0.1;
+        }
+    
+        displayNumericalMenuSettingWithUnit(initialValue, readableName, unit);
+    #endif
 }
 
 int saveToStorage(sto_item_id_t name) {
-    storageSet(name, initialValue);
-    return storageCommit();
+    return storageSet(name, initialValue, true);
 }
 
 void changeNumericalValue(double* param, double value, sto_item_id_t name, const char* readableName, const char* unit) {
     changeNumericalSetup(value, readableName, unit);
-
     if(LCDML.FUNC_loop()) {
         changeNumericalLoop(readableName, unit);
             
@@ -61,15 +79,15 @@ void changeNumericalValue(double* param, double value, sto_item_id_t name, const
             if (saveToStorage(name) == 0) {
                 *param = initialValue;
 
-                #if ROTARY_MENU_DEBUG == 1
-                    debugPrintln("SAVED.");
+                #if MENU_DEBUG == 1
+                    LOG(DEBUG, "SAVED.");
                 #endif
 
                 LCDML.FUNC_goBackToMenu();
             } 
             else {
-                #if ROTARY_MENU_DEBUG == 1
-                    debugPrintln("error.");
+                #if MENU_DEBUG == 1
+                    LOG(DEBUG, "error.");
                 #endif
             }
         }
@@ -166,12 +184,12 @@ void switchBoolean(uint8_t* flag, uint8_t param, const char* title, sto_item_id_
 
         if (saved == 0) {
             *flag = param;
-            #if ROTARY_MENU_DEBUG == 1
-                debugPrintf("Saved %s: %d!\n", title, param);
+            #if MENU_DEBUG == 1
+                LOGF(DEBUG, "Saved %s: %d!\n", title, param);
             #endif
         } else {
-            #if ROTARY_MENU_DEBUG == 1
-                debugPrintf("Could not save %s: %d\n", title, saved);
+            #if MENU_DEBUG == 1
+                LOGF(DEBUG, "Could not save %s: %d\n", title, saved);
             #endif
         }
 
@@ -225,6 +243,7 @@ void menuClose(uint8_t param) {
     }
 }
 
+boolean checkOnlyPid() {return ONLYPID == 0;}
 boolean checkBackflushEnabled() { return backflushOn == 1; }
 boolean checkBackflushDisabled() { return backflushOn == 0; }
 
@@ -239,6 +258,8 @@ boolean checkPonMDisabled() { return usePonM == 0; }
 boolean checkBrewPIDEnabled() { return useBDPID == 1; }
 boolean checkBrewPIDDisabled() { return useBDPID == 0; }
 
+
+
 // Temperatures
 LCDML_add(0, LCDML_0, 1, LANGSTRING_MENU_TEMPERATURE, NULL); 
 LCDML_add(1, LCDML_0_1, 1, LANGSTRING_MENU_BREWSETPOINT, changeBrewTemp); 
@@ -249,15 +270,15 @@ LCDML_add(4, LCDML_0_1, 4, LANGSTRING_MENU_BACK, menuBack);
 // Times and Weights
 LCDML_add(5, LCDML_0, 2, LANGSTRING_MENU_TIMES_AND_WEIGHTS, NULL); 
 LCDML_add(6, LCDML_0_2, 1, LANGSTRING_MENU_BREWTIME, changeBrewTime); 
-LCDML_add(7, LCDML_0_2, 2, LANGSTRING_MENU_PREINFUSIONTIME, changePreinfusionTime); 
-LCDML_add(8, LCDML_0_2, 3, LANGSTRING_MENU_PREINFUSIONPAUSETIME, changePreinfusionPauseTime); 
+LCDML_addAdvanced(7, LCDML_0_2, 2, checkOnlyPid, LANGSTRING_MENU_PREINFUSIONTIME, changePreinfusionTime, 0, _LCDML_TYPE_default); 
+LCDML_addAdvanced(8, LCDML_0_2, 3, checkOnlyPid, LANGSTRING_MENU_PREINFUSIONPAUSETIME, changePreinfusionPauseTime, 0, _LCDML_TYPE_default); 
 LCDML_addAdvanced(9, LCDML_0_2, 4, checkBrewModeScale, LANGSTRING_MENU_WEIGHTSETPOINT, changeTargetWeight, 0, _LCDML_TYPE_default); 
 LCDML_add(10, LCDML_0_2, 5, LANGSTRING_MENU_BACK, menuBack); 
 
 // Machine settings
 LCDML_add(11, LCDML_0, 3, LANGSTRING_MENU_MACHINESETTINGS, NULL); 
 // BACKFLUSH
-LCDML_add(12, LCDML_0_3, 1, LANGSTRING_MENU_BACKFLUSH, NULL); 
+LCDML_addAdvanced(12, LCDML_0_3, 1, checkOnlyPid, LANGSTRING_MENU_BACKFLUSH, NULL, 0, _LCDML_TYPE_default); 
 LCDML_addAdvanced(13, LCDML_0_3_1, 1, checkBackflushDisabled, LANGSTRING_MENU_ON, toggleBackflush, 0, _LCDML_TYPE_default); 
 LCDML_addAdvanced(14, LCDML_0_3_1, 2, checkBackflushEnabled, LANGSTRING_MENU_OFF, toggleBackflush, 0, _LCDML_TYPE_default); 
 LCDML_add(15, LCDML_0_3_1, 3, LANGSTRING_MENU_BACK, menuBack); 
@@ -308,40 +329,58 @@ long menuAbortInterval = 3000;
 
 // Translate encoder events to menu events
 void menuControls(void) {
+    #if (MENU_INPUT == 0)
     int32_t pos = encoder.getCount() / ENCODER_CLICKS_PER_NOTCH;
     if (pos < last) {
         LCDML.BT_up();
-        #if ROTARY_MENU_DEBUG == 1
-            debugPrintf("Up\n");
-        #endif 
+        LOG(DEBUG, "Up\n");
     } 
     else if (pos > last) {
         LCDML.BT_down();
-        #if ROTARY_MENU_DEBUG == 1
-            debugPrintf("Down\n");
-        #endif
+        LOG(DEBUG, "Down\n");
     } 
     else {
         if (xQueueReceive(button_events, &ev, 1/portTICK_PERIOD_MS)) {
-            if (ev.event == BUTTON_UP) {
-                #if ROTARY_MENU_DEBUG == 1
-                    debugPrintf("Processing Click");
-                #endif
+            if (ev.pin == PIN_MENU_ENTER && ev.event == BUTTON_UP) {
+                LOG(DEBUG, "Processing Enter Click");
                 LCDML.BT_enter();
-            } else if (ev.event == BUTTON_HELD) {
+            } else if (ev.pin == PIN_MENU_ENTER && ev.event == BUTTON_HELD) {
                 long abortTime = millis();
                 if (abortTime - lastMenuAbort > menuAbortInterval) {
-                    #if ROTARY_MENU_DEBUG == 1
-                        debugPrintf("Processing button held, aborting.");
-                    #endif
+                    LOG(DEBUG, "Processing Enter button held, aborting.");
                     LCDML.FUNC_goBackToMenu(1);
                     lastMenuAbort = abortTime;
                 }
             }
         }
     }
-
     last = pos;
+    #elif (MENU_INPUT == 1)
+        if (xQueueReceive(button_events, &ev, 1/portTICK_PERIOD_MS)) {
+            if (ev.pin == PIN_MENU_ENTER) {
+                if (ev.event == BUTTON_UP) {
+                    LOG(DEBUG, "Processing Enter Click");
+                    LCDML.BT_enter();
+                } else if (ev.event == BUTTON_HELD) {
+                    long abortTime = millis();
+                    if (abortTime - lastMenuAbort > menuAbortInterval) {
+                        LOG(DEBUG, "Processing Enter button held, aborting.");
+                        LCDML.FUNC_goBackToMenu(1);
+                        lastMenuAbort = abortTime;
+                    }
+                }
+            }
+            else if (ev.pin == PIN_MENU_UP && ev.event == BUTTON_UP) {
+                LOG(DEBUG, "Processing Up Click");
+                LCDML.BT_up();
+            }
+            else if (ev.pin == PIN_MENU_DOWN && ev.event == BUTTON_UP) {
+                LOG(DEBUG, "Processing Down Click");
+                LCDML.BT_down();
+            }
+        }
+    #endif
+    
 }
 
 void clearMenu() {
@@ -352,7 +391,7 @@ void setupMenu() {
 }
 
 void displayMenu() {
-    #if ROTARY_MENU_DEBUG // output menu to serial 
+    #if MENU_DEBUG // output menu to serial
 
     // update content
     if (LCDML.DISP_checkMenuUpdate() || LCDML.DISP_checkMenuCursorUpdate() ) {
@@ -363,7 +402,6 @@ void displayMenu() {
         uint8_t i = LCDML.MENU_getScroll();
         uint8_t maxi = (_LCDML_DISP_rows) + i;
         uint8_t n = 0;
-
         // check if this element has children
         if ((tmp = LCDML.MENU_getDisplayedObj()) != NULL) {
 
@@ -372,26 +410,20 @@ void displayMenu() {
                 // check if a menu element has a condition and if the condition be true
                 if (tmp->checkCondition()) {
                     // display cursor
-                    if (n == LCDML.MENU_getCursorPos()) {
-                        debugPrint(F("(x) "));
-                    }
-                    else {
-                        debugPrint(F("( ) "));
-                    }
+
+
 
                     // check the type off a menu element
                     if(tmp->checkType_menu() == true) {
                         // display normal content
                         LCDML_getContent(content_text, tmp->getID());
-                        debugPrint(content_text);
+                        LOGF(DEBUG,"%s %s\n", n == LCDML.MENU_getCursorPos() ? checked : check, content_text);
                     }
                     else {
                         if(tmp->checkType_dynParam()) {
                         tmp->callback(n);
                         }
                     }
-
-                    debugPrintln("");
 
                     i++;
                     n++;
@@ -415,7 +447,7 @@ void displayMenu() {
     uint8_t scrollbar_cur_pos = LCDML.MENU_getCursorPosAbs();
     uint8_t scroll_pos = ((1.*n_max * _LCDML_DISP_rows) / (scrollbar_max - 1) * scrollbar_cur_pos);
 
-    u8g2.setFont(u8g2_font_profont11_tf);
+    u8g2.setFont(_LCDML_DISP_font);
     u8g2.firstPage();
 
     do {
