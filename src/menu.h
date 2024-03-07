@@ -417,7 +417,7 @@ void displayMenu() {
                     if(tmp->checkType_menu() == true) {
                         // display normal content
                         LCDML_getContent(content_text, tmp->getID());
-                        LOGF(DEBUG,"%s %s\n", n == LCDML.MENU_getCursorPos() ? checked : check, content_text);
+                        LOGF(DEBUG,"%s %s", n == LCDML.MENU_getCursorPos() ? checked : check, content_text);
                     }
                     else {
                         if(tmp->checkType_dynParam()) {
