@@ -240,6 +240,9 @@ double brewPIDDelay = BREW_PID_DELAY;    // use userConfig brew detection PID de
 uint8_t standbyModeOn = 0;
 double standbyModeTime = STANDBY_MODE_TIME;
 
+uint8_t menuInputInvert = 0;
+uint8_t menuScrollInvert = 0;
+
 #include "standby.h"
 
 // system parameter EEPROM storage wrappers (current value as pointer to variable, minimum, maximum, optional storage ID)
@@ -272,6 +275,8 @@ SysPara<double> sysParaStandbyModeTime(&standbyModeTime, STANDBY_MODE_TIME_MIN, 
 SysPara<float> sysParaScaleCalibration(&scaleCalibration, -100000, 100000, STO_ITEM_SCALE_CALIBRATION_FACTOR);
 SysPara<float> sysParaScale2Calibration(&scale2Calibration, -100000, 100000, STO_ITEM_SCALE2_CALIBRATION_FACTOR);
 SysPara<float> sysParaScaleKnownWeight(&scaleKnownWeight, 0, 2000, STO_ITEM_SCALE_KNOWN_WEIGHT);
+SysPara<uint8_t> sysParaMenuInvert(&menuInputInvert, 0, 1, STO_ITEM_MENU_INPUT_INVERT);
+SysPara<uint8_t> sysParaMenuScrollInvert(&menuScrollInvert, 0, 1, STO_ITEM_MENU_SCROLL_INVERT);
 
 // Other variables
 boolean emergencyStop = false;                // Emergency stop if temperature is too high
@@ -2107,6 +2112,8 @@ int readSysParamsFromStorage(void) {
     if (sysParaScaleCalibration.getStorage() != 0) return -1;
     if (sysParaScale2Calibration.getStorage() != 0) return -1;
     if (sysParaScaleKnownWeight.getStorage() != 0) return -1;
+    if (sysParaMenuInvert.getStorage() != 0) return -1;
+    if (sysParaMenuScrollInvert.getStorage() != 0) return -1;
 
     return 0;
 }
@@ -2146,6 +2153,8 @@ int writeSysParamsToStorage(void) {
     if (sysParaScaleCalibration.setStorage() != 0) return -1;
     if (sysParaScale2Calibration.setStorage() != 0) return -1;
     if (sysParaScaleKnownWeight.setStorage() != 0) return -1;
+    if (sysParaMenuInvert.setStorage() != 0) return -1;
+    if (sysParaMenuScrollInvert.setStorage() != 0) return -1;
 
     return storageCommit();
 }

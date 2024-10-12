@@ -19,6 +19,8 @@ GPIOPin* menuDownPin;
 ESP32Encoder encoder;
 QueueHandle_t button_events;
 button_event_t ev;
+bool invertMenuInput;
+bool invertScrollInput;
 
 int last = 0;
 
@@ -42,6 +44,16 @@ void saveStandbyTime() {
     sysParaStandbyModeTime.setStorage(true);
 }
 
+void saveInputInvert() {
+    menu->InvertMenuInput(reinterpret_cast<bool&>(menuInputInvert));
+    //sysParaMenuInvert.setStorage(true);
+}
+
+void saveScrollInvert() {
+    menu->InvertScrollInput(reinterpret_cast<bool&>(menuScrollInvert));
+    //sysParaMenuScrollInvert.setStorage(true);
+}
+
 bool hasBrewControl() {
     return FEATURE_BREWCONTROL > 0;
 }
@@ -62,6 +74,8 @@ void menuInputInit() {
             menuDownPin = new GPIOPin(PIN_MENU_OUT_B, GPIOPin::IN_PULLUP);
 
             button_events = pulled_button_init(PIN_BIT(menuEnterPin->getPinNumber()) | PIN_BIT(menuUpPin->getPinNumber()) | PIN_BIT(menuDownPin->getPinNumber()), GPIO_PULLUP_ONLY);
+
+
             break;
         case MENUINPUT::ROTARY:
             menuEnterPin = new GPIOPin(PIN_MENU_ENTER, GPIOPin::IN_PULLUP);
@@ -74,6 +88,7 @@ void menuInputInit() {
             encoder.attachFullQuad(PIN_MENU_OUT_A, PIN_MENU_OUT_B);
             encoder.setCount(0);
 
+
             break;
         default:
             break;
@@ -84,6 +99,9 @@ void initMenu(U8G2& display) {
     menu = new Menu(display);
 
     menuInputInit();
+
+    menu->InvertScrollInput(true);
+    menu->InvertMenuInput(true);
 
     /* Main Menu */
     menu->AddInputItem("Brew Temp.", "Brew Temperature", "", "°C", BREW_SETPOINT_MIN, BREW_SETPOINT_MAX, saveBrewTemp, brewSetpoint, bitmap_icon_temp, 0.1, 0.5);
@@ -129,14 +147,14 @@ void initMenu(U8G2& display) {
         }
         if (MENU_INPUT == MENUINPUT::ROTARY) {
             int32_t pos = encoder.getCount() / ENCODER_CLICKS_PER_NOTCH;
-            if (pos > last) {
+            if (pos < last) {
                 menu->Event(EVENT_UP, EventState(EventState::STATE_DOWN));
-                LOG(DEBUG, "Menu: Up\n");
+                LOG(DEBUG, "Menu: Up");
                 menu->Event(EVENT_UP, EventState(EventState::STATE_UP));
             }
-            else if (pos < last) {
+            else if (pos > last) {
                 menu->Event(EVENT_DOWN, EventState(EventState::STATE_DOWN));
-                LOG(DEBUG, "Menu: Down\n");
+                LOG(DEBUG, "Menu: Down");
                 menu->Event(EVENT_DOWN, EventState(EventState::STATE_UP));
             }
 
@@ -167,11 +185,20 @@ void initMenu(U8G2& display) {
     menu->AddSubMenu("Maintenance", *maintenanceMenu, bitmap_icon_tools, hasBrewControl());
 
     /*
+     * Menu Menu
+     */
+    Menu* menuMenu = new Menu(display);
+    menuMenu->AddToggleItem("Invert Input", saveInputInvert, reinterpret_cast<bool&>(menuInputInvert), true);
+    menuMenu->AddToggleItem("Invert Scroll", saveScrollInvert, reinterpret_cast<bool&>(menuScrollInvert), true);
+    menuMenu->AddBackItem("Back", bitmap_icon_back);
+    /*
      * Advanced Menu
      */
 
     Menu* advancedMenu = new Menu(display);
     advancedMenu->AddInputItem("Brew Temp. Offset", "Brew temp. offset", "", "°C", BREW_TEMP_OFFSET_MIN, BREW_TEMP_OFFSET_MAX, []() { sysParaTempOffset.setStorage(true); }, brewTempOffset, bitmap_icon_temp);
+    advancedMenu->AddSubMenu("Menu", *menuMenu, true);
+
     /*
      * Standby Menu
      */

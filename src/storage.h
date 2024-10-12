@@ -41,8 +41,11 @@ typedef enum {
     STO_ITEM_SCALE_CALIBRATION_FACTOR,  // Calibration factor for scale
     STO_ITEM_SCALE2_CALIBRATION_FACTOR, // Calibration factor for scale 2
     STO_ITEM_SCALE_KNOWN_WEIGHT,        // Calibration weight for scale
+    STO_ITEM_MENU_INPUT_INVERT,
+    STO_ITEM_MENU_SCROLL_INVERT,
     STO_ITEM_RESERVED_30,               // reserved
     STO_ITEM_RESERVED_21,               // reserved
+
 
     /* WHEN ADDING NEW ITEMS, THE FOLLOWING HAS TO BE UPDATED:
      * - storage structure:  sto_data_t
@@ -88,9 +91,9 @@ typedef struct __attribute__((packed)) {
         double pidKpBd;
         float scale2Calibration;
         double pidTnBd;
-        uint8_t freeToUse8[2];
+        uint8_t menuInputInvert;
         double pidTvBd;
-        uint8_t freeToUse9[2];
+        uint8_t menuScrollInvert;
         double brewSwTimeSec;
         double brewPIDDelaySec;
         uint8_t freeToUse10;
@@ -135,9 +138,9 @@ static const sto_data_t itemDefaults PROGMEM = {
     AGGBKP,                                                                                                                         // STO_ITEM_PID_KP_BD
     SCALE2_CALIBRATION_FACTOR,                                                                                                      // STO_ITEM_SCALE2_CALIBRATION_FACTOR
     AGGBTN,                                                                                                                         // STO_ITEM_PID_TN_BD
-    {0xFF, 0xFF},                                                                                                                   // free to use
+    MENU_BUTTONS_INVERT_INPUT,                                                                                                                   // free to use
     AGGBTV,                                                                                                                         // STO_ITEM_PID_TV_BD
-    {0xFF, 0xFF},                                                                                                                   // free to use
+    MENU_BUTTONS_INVERT_SCROLL,                                                                                                                   // free to use
     BREW_SW_TIME,                                                                                                                   // STO_ITEM_BREW_SW_TIME
     BREW_PID_DELAY,                                                                                                                 // STO_ITEM_BREW_PID_DELAY
     0xFF,                                                                                                                           // free to use
@@ -333,6 +336,15 @@ static inline int32_t getItemAddr(sto_item_id_t itemId, uint16_t* maxItemSize = 
             addr = offsetof(sto_data_t, scaleKnownWeight);
             size = STRUCT_MEMBER_SIZE(sto_data_t, scaleKnownWeight);
             break;
+
+        case STO_ITEM_MENU_INPUT_INVERT:
+            addr = offsetof(sto_data_t, menuInputInvert);
+            size = STRUCT_MEMBER_SIZE(sto_data_t, menuInputInvert);
+
+        case STO_ITEM_MENU_SCROLL_INVERT:
+            addr = offsetof(sto_data_t, menuScrollInvert);
+            size = STRUCT_MEMBER_SIZE(sto_data_t, menuScrollInvert);
+
 
         default:
             LOGF(ERROR, "invalid item ID %i!", itemId);
