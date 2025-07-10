@@ -4,7 +4,7 @@
 <div align="center">
 <img src="https://img.shields.io/github/actions/workflow/status/rancilio-pid/clevercoffee/main.yml?branch=master">
 <img src="https://img.shields.io/github/last-commit/rancilio-pid/clevercoffee/master"><br>
-<a href='https://ko-fi.com/clevercoffee' target='_blank'><img height='35' style='border:0px;height:46px;' src='https://az743702.vo.msecnd.net/cdn/kofi3.png?v=0' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
+<a href="https://ko-fi.com/clevercoffee" target="_blank" style="color: black; text-decoration: none;">Buy Me a Coffee at ko-fi.com</a>
 </div>
 
 # About
@@ -32,9 +32,8 @@ We recommend you have a look at the manual before starting a build, you can find
 ## Chat and Support
 You will find more information, discussions, and support on our [Discord](https://discord.gg/Kq5RFznuU4) server.
 If you want to be part of the project and help with development of hardware, software and documentation you will also find the right channels there.
-**Please keep in mind that we only can give support for our own pcbs. We will not help with any hardware solutions that are not based on our own pcbs.**
-**Please do not offer any kind of pcb derivatives of our design or own developments without contacting us before.
-This can cause a ban on our discord server.**
+**Please keep in mind that we primarily give support for our own pcbs. We may not be able to help with any hardware solutions that are not based on our own pcbs.**
+**Please do not offer any kind of pcb derivatives of our design or own developments without contacting us before.**
 
 Video tutorial on how to flash the firmware (a little outdated but mostly still valid):<br>
 https://youtu.be/KZPjisOEcQ4
@@ -51,12 +50,11 @@ Further development, with new features, will only be done for ESP32.
  * Reaches the target temperature within 5 to 10 minutes after switching on (you should, however, wait a bit longer, e.g. 20 min depending on the machine to heat up the group head etc.)
  * Set PID parameters and monitor current temperature and heater output on a web page hosted on the ESP controller
  * Separate PID for steam mode with own parameters and target temperature (can be enabled in the web interface/MQTT or using the steam switch)
- * Automatically brew by set time (including pre-infusion with additional dimmer for the pump).
+ * Automatically brew by set time including pre-infusion timing.
  * Automatically brew by weight when scale components are built in.
  * Possible to change brew and steam switches to push buttons. Brew push button then has two actions: short press for brew, long press to flush.
  * Allows brew switch detection (e.g. for the shot timer) by using an optocoupler module when deciding not to control the pump from the ESP ([details](https://rancilio-pid.github.io/ranciliopid-handbook/de/customization/brueherkennung.html#konfiguration-der-erkennung)).
 * MQTT (IoT) support to monitor and manipulate all important parameters.
- * Extended data monitoring via Influxdb/Grafana.
  * Choose from multiple designs for the display (including vertical), possibility to integrate custom designs
  * Over-The-Air updates of the firmware (WiFi)
 

@@ -58,7 +58,7 @@ void serverSetup();
 void setEepromWriteFcn(int (*fcnPtr)(void));
 
 // editable vars are specified in main.cpp
-#define EDITABLE_VARS_LEN 33
+#define EDITABLE_VARS_LEN 40
 extern std::map<String, editable_t> editableVars;
 
 // EEPROM
@@ -317,7 +317,7 @@ void serverSetup() {
             // update all given params and match var name in editableVars
 
             for (int i = 0; i < requestParams; i++) {
-                AsyncWebParameter* p = request->getParam(i);
+                auto* p = request->getParam(i);
                 String varName;
 
                 if (p->name().startsWith("var")) {
@@ -407,7 +407,7 @@ void serverSetup() {
 
     server.on("/parameterHelp", HTTP_GET, [](AsyncWebServerRequest* request) {
         DynamicJsonDocument doc(1024);
-        AsyncWebParameter* p = request->getParam(0);
+        auto* p = request->getParam(0);
 
         if (p == NULL) {
             request->send(422, "text/plain", "parameter is missing");
@@ -459,6 +459,15 @@ void serverSetup() {
 
         serializeJson(doc, *response);
         request->send(response);
+    });
+
+    server.on("/wifireset", HTTP_POST, [](AsyncWebServerRequest* request) {
+        request->send(200, "text/plain", "WiFi settings are being reset. Rebooting...");
+
+        // Defer slightly so the response gets sent before reboot
+        delay(1000);
+
+        wiFiReset();
     });
 
     server.onNotFound([](AsyncWebServerRequest* request) { request->send(404, "text/plain", "Not found"); });
