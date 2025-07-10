@@ -46,12 +46,12 @@ void saveStandbyTime() {
 
 void saveInputInvert() {
     menu->InvertMenuInput(reinterpret_cast<bool&>(menuInputInvert));
-    //sysParaMenuInvert.setStorage(true);
+    //sysParaDisplayMenuInvert.setStorage(true);
 }
 
 void saveScrollInvert() {
     menu->InvertScrollInput(reinterpret_cast<bool&>(menuScrollInvert));
-    //sysParaMenuScrollInvert.setStorage(true);
+    //sysParaDisplayMenuScrollInvert.setStorage(true);
 }
 
 bool hasBrewControl() {
@@ -67,7 +67,7 @@ bool hasSoftwareDetection() {
 }
 
 void menuInputInit() {
-    switch (MENU_INPUT) {
+    switch (DISPLAY_MENU_INPUT) {
         case MENUINPUT::BUTTONS:
             menuEnterPin = new GPIOPin(PIN_MENU_ENTER, GPIOPin::IN_PULLUP);
             menuUpPin = new GPIOPin(PIN_MENU_OUT_A, GPIOPin::IN_PULLUP);

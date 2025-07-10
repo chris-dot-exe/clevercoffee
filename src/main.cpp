@@ -280,9 +280,8 @@ SysPara<uint8_t> sysParaFeatureFullscreenManualFlushTimer(&featureFullscreenManu
 SysPara<double> sysParaPostBrewTimerDuration(&postBrewTimerDuration, POST_BREW_TIMER_DURATION_MIN, POST_BREW_TIMER_DURATION_MAX, STO_ITEM_POST_BREW_TIMER_DURATION);
 SysPara<uint8_t> sysParaFeatureHeatingLogo(&featureHeatingLogo, 0, 1, STO_ITEM_FEATURE_HEATING_LOGO);
 SysPara<uint8_t> sysParaFeaturePidOffLogo(&featurePidOffLogo, 0, 1, STO_ITEM_FEATURE_PID_OFF_LOGO);
-// TODO CHECK AFTER MERGE
-SysPara<uint8_t> sysParaMenuInvert(&menuInputInvert, 0, 1, STO_ITEM_MENU_INPUT_INVERT);
-SysPara<uint8_t> sysParaMenuScrollInvert(&menuScrollInvert, 0, 1, STO_ITEM_MENU_SCROLL_INVERT);
+SysPara<uint8_t> sysParaDisplayMenuInvert(&menuInputInvert, 0, 1, STO_ITEM_MENU_INPUT_INVERT);
+SysPara<uint8_t> sysParaDisplayMenuScrollInvert(&menuScrollInvert, 0, 1, STO_ITEM_MENU_SCROLL_INVERT);
 
 // Other variables
 boolean emergencyStop = false;                // Emergency stop if temperature is too high
@@ -1472,7 +1471,7 @@ void setup() {
     displayLogo(String("Version "), String(sysVersion));
     delay(2000); // caused crash with wifi manager on esp8266, should be ok on esp32
 
-#if FEATURE_MENU == 1
+#if FEATURE_DISPLAY_MENU == 1
     initMenu(u8g2);
 #endif
 #endif
@@ -1928,9 +1927,8 @@ int readSysParamsFromStorage(void) {
     if (sysParaPostBrewTimerDuration.getStorage() != 0) return -1;
     if (sysParaFeatureHeatingLogo.getStorage() != 0) return -1;
     if (sysParaFeaturePidOffLogo.getStorage() != 0) return -1;
-    // TODO CHECK AFTER MERGE
-    if (sysParaMenuInvert.getStorage() != 0) return -1;
-    if (sysParaMenuScrollInvert.getStorage() != 0) return -1;
+    if (sysParaDisplayMenuInvert.getStorage() != 0) return -1;
+    if (sysParaDisplayMenuScrollInvert.getStorage() != 0) return -1;
 
     return 0;
 }
@@ -1975,9 +1973,8 @@ int writeSysParamsToStorage(void) {
     if (sysParaPostBrewTimerDuration.setStorage() != 0) return -1;
     if (sysParaFeatureHeatingLogo.setStorage() != 0) return -1;
     if (sysParaFeaturePidOffLogo.setStorage() != 0) return -1;
-    // TODO CHECK AFTER MERGE
-    if (sysParaMenuInvert.setStorage() != 0) return -1;
-    if (sysParaMenuScrollInvert.setStorage() != 0) return -1;
+    if (sysParaDisplayMenuInvert.setStorage() != 0) return -1;
+    if (sysParaDisplayMenuScrollInvert.setStorage() != 0) return -1;
 
     return storageCommit();
 }

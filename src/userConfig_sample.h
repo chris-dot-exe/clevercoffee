@@ -28,8 +28,7 @@
 #define LANGUAGE 0              // LANGUAGE = 0 (DE), LANGUAGE = 1 (EN), LANGUAGE = 2 (ES)
 
 // Display Menu
-// TODO RENAME
-#define FEATURE_MENU 0                  // 0 = deactivated, 1 = enabled
+#define FEATURE_DISPLAY_MENU 0          // 0 = deactivated, 1 = enabled
 #define MENU_INPUT   MENUINPUT::BUTTONS // MENUINPUT::BUTTONS = input with three buttons, MENUINPUT::ROTARY = input with rotary encoder with shaft switch
 
 #define LANGUAGE 0                      // LANGUAGE = 0 (DE), LANGUAGE = 1 (EN), LANGUAGE = 2 (ES)
