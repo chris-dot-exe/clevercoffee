@@ -129,6 +129,12 @@ const unsigned long intervalPressure = 100;
 unsigned long previousMillisPressure; // initialisation at the end of init()
 #endif
 
+// Update for Display
+#if (FEATURE_DISPLAY_MENU == 1)
+unsigned long previousMillisDisplay;
+const unsigned long intervalDisplay = 100;
+#endif
+
 Switch* waterTankSensor;
 
 GPIOPin* statusLedPin;
@@ -1695,11 +1701,11 @@ void looppid() {
 
     if (menu == nullptr || !menu->IsOpen()) {
         unsigned long currentMillisDisplay = millis();
-
+#if (FEATURE_BREWSWITCH == 1)
         if (currentMillisDisplay - previousMillisDisplay >= 100) {
             displayShottimer();
         }
-
+#endif
         if (currentMillisDisplay - previousMillisDisplay >= intervalDisplay) {
             previousMillisDisplay = currentMillisDisplay;
 #if DISPLAYTEMPLATE < 20   // not using vertical template
