@@ -24,6 +24,15 @@ bool invertScrollInput;
 
 int last = 0;
 
+template <typename T>
+inline auto makeSaveCallback(const char* param, T& value) {
+    return [param, &value]() {
+        if (!ParameterRegistry::getInstance().setParameterValue(param, value)) {
+            LOG(ERROR, "Failed to save config to filesystem!");
+        }
+    };
+}
+
 void saveBrewTemp() {
     sysParaBrewSetpoint.setStorage(true);
 }
@@ -98,6 +107,8 @@ void menuInputInit() {
 void initMenu(U8G2& display) {
     menu = new Menu(display);
 
+    auto& params = ParameterRegistry::getInstance();
+
     menuInputInit();
 
     menu->InvertScrollInput(true);
@@ -133,7 +144,7 @@ void initMenu(U8G2& display) {
                 menu->Event(EVENT_ENTER, EventState(ev.event));
             }
             else {
-                if (MENU_INPUT == MENUINPUT::BUTTONS) {
+                if (DISPLAY_MENU_INPUT == MENUINPUT::BUTTONS) {
                     if (ev.pin == menuUpPin->getPinNumber()) {
                         resetStandbyTimer();
                         menu->Event(EVENT_UP, EventState(ev.event));
@@ -145,7 +156,7 @@ void initMenu(U8G2& display) {
                 }
             }
         }
-        if (MENU_INPUT == MENUINPUT::ROTARY) {
+        if (DISPLAY_MENU_INPUT == MENUINPUT::ROTARY) {
             int32_t pos = encoder.getCount() / ENCODER_CLICKS_PER_NOTCH;
             if (pos < last) {
                 menu->Event(EVENT_UP, EventState(EventState::STATE_DOWN));
@@ -164,8 +175,8 @@ void initMenu(U8G2& display) {
 
     /* Brew Weight & Time */
     Menu* weightNTime = new Menu(display);
-    weightNTime->AddInputItem("Brew by Time", "Brew Time", "", " s", BREW_TIME_MIN, BREW_TIME_MAX, []() { sysParaBrewTime.setStorage(true); }, brewTime, bitmap_icon_clock);
-    weightNTime->AddInputItem("Brew by Weight", "Brew Weight", "", "g", WEIGHTSETPOINT_MIN, WEIGHTSETPOINT_MAX, []() { sysParaWeightSetpoint.setStorage(true); }, weightSetpoint, bitmap_icon_scale, hasScale());
+    weightNTime->AddInputItem("Brew by Time", "Brew Time", "", " s", TARGET_BREW_TIME_MIN, TARGET_BREW_TIME_MAX, makeSaveCallback("brew.by_time.target_time", targetBrewTime), brewTime, bitmap_icon_clock);
+    weightNTime->AddInputItem("Brew by Weight", "Brew Weight", "", "g", TARGET_BREW_WEIGHT_MIN, TARGET_BREW_WEIGHT_MAX, []() { sysParaWeightSetpoint.setStorage(true); }, weightSetpoint, bitmap_icon_scale, hasScale());
     weightNTime->AddBackItem("Back", bitmap_icon_back);
     menu->AddSubMenu("Brew Time & Weight", *weightNTime, hasBrewControl());
 
