@@ -13,6 +13,10 @@ enum MENUINPUT {
 };
 
 Menu* menu;
+
+// TODO Menu: add setting to web config
+#define MENU_INPUT MENUINPUT::ROTARY
+
 GPIOPin* menuEnterPin;
 GPIOPin* menuUpPin;
 GPIOPin* menuDownPin;
@@ -33,24 +37,8 @@ inline auto makeSaveCallback(const char* param, T& value) {
     };
 }
 
-void saveBrewTemp() {
-    sysParaBrewSetpoint.setStorage(true);
-}
-
-void saveSteamTemp() {
-    sysParaSteamSetpoint.setStorage(true);
-}
-
-void savePIDOn() {
-    sysParaPidOn.setStorage(true);
-}
-
-void saveStandby() {
-    sysParaStandbyModeOn.setStorage(true);
-}
-
-void saveStandbyTime() {
-    sysParaStandbyModeTime.setStorage(true);
+bool hasScale() {
+    return config.get<bool>("hardware.sensors.scale.enabled");
 }
 
 void saveInputInvert() {
@@ -63,20 +51,9 @@ void saveScrollInvert() {
     //sysParaDisplayMenuScrollInvert.setStorage(true);
 }
 
-bool hasBrewControl() {
-    return FEATURE_BREWCONTROL > 0;
-}
-
-bool hasScale() {
-    return FEATURE_SCALE > 0;
-}
-
-bool hasSoftwareDetection() {
-    return BREWDETECTION_TYPE == 1;
-}
 
 void menuInputInit() {
-    switch (DISPLAY_MENU_INPUT) {
+    switch (MENU_INPUT) {
         case MENUINPUT::BUTTONS:
             menuEnterPin = new GPIOPin(PIN_MENU_ENTER, GPIOPin::IN_PULLUP);
             menuUpPin = new GPIOPin(PIN_MENU_OUT_A, GPIOPin::IN_PULLUP);
@@ -115,10 +92,10 @@ void initMenu(U8G2& display) {
     menu->InvertMenuInput(true);
 
     /* Main Menu */
-    menu->AddInputItem("Brew Temp.", "Brew Temperature", "", "°C", BREW_SETPOINT_MIN, BREW_SETPOINT_MAX, saveBrewTemp, brewSetpoint, bitmap_icon_temp, 0.1, 0.5);
-    menu->AddInputItem("Steam Temp.", "Steam Temperature", "", "°C", STEAM_SETPOINT_MIN, STEAM_SETPOINT_MAX, saveSteamTemp, steamSetpoint, bitmap_icon_steam, 0.1, 0.5);
+    menu->AddInputItem("Brew Temp.", "Brew Temperature", "", "°C", BREW_SETPOINT_MIN, BREW_SETPOINT_MAX, makeSaveCallback("brew.setpoint", brewSetpoint), brewSetpoint, bitmap_icon_temp, 0.1, 0.5);
+    menu->AddInputItem("Steam Temp.", "Steam Temperature", "", "°C", STEAM_SETPOINT_MIN, STEAM_SETPOINT_MAX, makeSaveCallback("steam.setpoint", steamSetpoint), steamSetpoint, bitmap_icon_steam, 0.1, 0.5);
 
-    menu->AddToggleItem("PID", savePIDOn, reinterpret_cast<bool&>(pidON), bitmap_icon_pid);
+    menu->AddToggleItem("PID", makeSaveCallback("pid.enabled", pidON), pidON, bitmap_icon_pid);
 
     menu->SetEventHandler([&]() {
         if (xQueueReceive(button_events, &ev, 1 / portTICK_PERIOD_MS)) {
@@ -126,11 +103,11 @@ void initMenu(U8G2& display) {
                 if (standbyModeRemainingTimeMillis == 0) {
                     resetStandbyTimer();
                     display.setPowerSave(0);
-                    pidON = 1;
+                    pidON = true;
                     if (steamON) {
                         machineState = kSteam;
                     }
-                    else if (isBrewDetected) {
+                    else if (checkBrewActive()) {
                         machineState = kBrew;
                     }
                     else {
@@ -144,7 +121,7 @@ void initMenu(U8G2& display) {
                 menu->Event(EVENT_ENTER, EventState(ev.event));
             }
             else {
-                if (DISPLAY_MENU_INPUT == MENUINPUT::BUTTONS) {
+                if (MENU_INPUT == MENUINPUT::BUTTONS) {
                     if (ev.pin == menuUpPin->getPinNumber()) {
                         resetStandbyTimer();
                         menu->Event(EVENT_UP, EventState(ev.event));
@@ -156,7 +133,7 @@ void initMenu(U8G2& display) {
                 }
             }
         }
-        if (DISPLAY_MENU_INPUT == MENUINPUT::ROTARY) {
+        if (MENU_INPUT == MENUINPUT::ROTARY) {
             int32_t pos = encoder.getCount() / ENCODER_CLICKS_PER_NOTCH;
             if (pos < last) {
                 menu->Event(EVENT_UP, EventState(EventState::STATE_DOWN));
@@ -175,25 +152,27 @@ void initMenu(U8G2& display) {
 
     /* Brew Weight & Time */
     Menu* weightNTime = new Menu(display);
-    weightNTime->AddInputItem("Brew by Time", "Brew Time", "", " s", TARGET_BREW_TIME_MIN, TARGET_BREW_TIME_MAX, makeSaveCallback("brew.by_time.target_time", targetBrewTime), brewTime, bitmap_icon_clock);
-    weightNTime->AddInputItem("Brew by Weight", "Brew Weight", "", "g", TARGET_BREW_WEIGHT_MIN, TARGET_BREW_WEIGHT_MAX, []() { sysParaWeightSetpoint.setStorage(true); }, weightSetpoint, bitmap_icon_scale, hasScale());
+    weightNTime->AddInputItem("Brew by Time", "Brew Time", "", " s", TARGET_BREW_TIME_MIN, TARGET_BREW_TIME_MAX, makeSaveCallback("brew.by_time.target_time", targetBrewTime), targetBrewTime, bitmap_icon_clock);
+
+    double targetWeight = config.get<double>("brew.by_weight.target_weight");
+    weightNTime->AddInputItem("Brew by Weight", "Brew Weight", "", "g", TARGET_BREW_WEIGHT_MIN, TARGET_BREW_WEIGHT_MAX, makeSaveCallback("brew.by_weight.target_weight",  targetWeight), targetWeight, bitmap_icon_scale, hasScale());
     weightNTime->AddBackItem("Back", bitmap_icon_back);
-    menu->AddSubMenu("Brew Time & Weight", *weightNTime, hasBrewControl());
+    menu->AddSubMenu(hasScale() ? "Brew Time & Weight" : "Brew Time", *weightNTime);
 
     /* Preinfusion */
     Menu* preInfusion = new Menu(display);
-    preInfusion->AddInputItem("Preinfusion Pause", "Pause", "", "s", PRE_INFUSION_PAUSE_MIN, PRE_INFUSION_PAUSE_MAX, []() { sysParaPreInfPause.setStorage(true); }, preinfusionPause, 1.0, 2.0, true);
-    preInfusion->AddInputItem("Preinfusion", "Time", "", "s", PRE_INFUSION_TIME_MIN, PRE_INFUSION_TIME_MAX, []() { sysParaPreInfTime.setStorage(true); }, preinfusion, 1.0, 2.0, true);
+    preInfusion->AddInputItem("Preinfusion Pause", "Pause", "", "s", PRE_INFUSION_PAUSE_MIN, PRE_INFUSION_PAUSE_MAX, makeSaveCallback("brew.pre_infusion.pause", preinfusionPause), preinfusionPause, 1.0, 2.0, true);
+    preInfusion->AddInputItem("Preinfusion", "Time", "", "s", PRE_INFUSION_TIME_MIN, PRE_INFUSION_TIME_MAX, makeSaveCallback("brew.pre_infusion.time", preinfusion), preinfusion, 1.0, 2.0, true);
     preInfusion->AddBackItem("Back", bitmap_icon_back);
-    menu->AddSubMenu("Preinfusion", *preInfusion, hasBrewControl());
+    menu->AddSubMenu("Preinfusion", *preInfusion, config.get<bool>("brew.pre_infusion.enabled"));
     /*
      * Maintenance Menu
      * */
     Menu* maintenanceMenu = new Menu(display);
-    maintenanceMenu->AddToggleItem("Backflush", reinterpret_cast<bool&>(backflushOn), bitmap_icon_refresh);
+    maintenanceMenu->AddToggleItem("Backflush", backflushOn, bitmap_icon_refresh);
     maintenanceMenu->AddBackItem("Back", bitmap_icon_back);
 
-    menu->AddSubMenu("Maintenance", *maintenanceMenu, bitmap_icon_tools, hasBrewControl());
+    menu->AddSubMenu("Maintenance", *maintenanceMenu, bitmap_icon_tools);
 
     /*
      * Menu Menu
@@ -207,15 +186,15 @@ void initMenu(U8G2& display) {
      */
 
     Menu* advancedMenu = new Menu(display);
-    advancedMenu->AddInputItem("Brew Temp. Offset", "Brew temp. offset", "", "°C", BREW_TEMP_OFFSET_MIN, BREW_TEMP_OFFSET_MAX, []() { sysParaTempOffset.setStorage(true); }, brewTempOffset, bitmap_icon_temp);
+    advancedMenu->AddInputItem("Brew Temp. Offset", "Brew temp. offset", "", "°C", BREW_TEMP_OFFSET_MIN, BREW_TEMP_OFFSET_MAX, makeSaveCallback("brew.temp_offset", brewTempOffset), brewTempOffset, bitmap_icon_temp);
     advancedMenu->AddSubMenu("Menu", *menuMenu, true);
 
     /*
      * Standby Menu
      */
     Menu* standbyMenu = new Menu(display);
-    standbyMenu->AddToggleItem("Standby", saveStandby, reinterpret_cast<bool&>(standbyModeOn), true);
-    standbyMenu->AddInputItem("Standby Time", "Standby Time", "", " m", STANDBY_MODE_TIME_MIN, STANDBY_MODE_TIME_MAX, saveStandbyTime, standbyModeTime, bitmap_icon_clock, 1.0, 2.0, true);
+    standbyMenu->AddToggleItem("Standby", makeSaveCallback("standby.enabled", standbyModeOn), standbyModeOn, true);
+    standbyMenu->AddInputItem("Standby Time", "Standby Time", "", " m", STANDBY_MODE_TIME_MIN, STANDBY_MODE_TIME_MAX, makeSaveCallback("standby.time", standbyModeTime), standbyModeTime, bitmap_icon_clock, 1.0, 2.0, true);
 
     standbyMenu->AddBackItem("Back", bitmap_icon_back);
     advancedMenu->AddSubMenu("Standby", *standbyMenu, bitmap_icon_sleep_mode);
