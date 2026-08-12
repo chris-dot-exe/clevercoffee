@@ -208,8 +208,8 @@ bool standbyModeOn = false;
 double standbyModeTime = STANDBY_MODE_TIME;
 
 // TODO Menu - check if needed and may change to boolean
-uint8_t menuInputInvert = 0;
-uint8_t menuScrollInvert = 0;
+bool menuInputInvert = false;
+bool menuScrollInvert = false;
 
 #include "standby.h"
 
