@@ -39,17 +39,50 @@ inline auto makeSaveCallback(const char* param, T& value) {
 
 template <typename T>
 inline T& getMenuVar(const std::string& paramId) {
-    // Der Compiler legt diese statische Map für jeden Typ T (double, bool...) separat an!
     static std::map<std::string, T> menuVars;
 
-    // Nur beim ersten Aufruf aus der Config laden
     if (menuVars.find(paramId) == menuVars.end()) {
-        // config.get unterstützt glücklicherweise auch direkt <T>
         menuVars[paramId] = config.get<T>(paramId.c_str());
     }
 
-    // Gibt die dauerhafte Referenz (T&) zurück
     return menuVars[paramId];
+}
+
+// Spezieller Helper für MenuInfoEntry (gibt const char** zurück)
+inline const char** getMenuInfoVar(const std::string& paramId) {
+    // 1. Map hält das eigentliche Arduino String-Objekt dauerhaft am Leben
+    static std::map<std::string, String> infoStrings;
+    // 2. Map hält den dazugehörigen const char* Pointer, dessen Adresse das Menü braucht
+    static std::map<std::string, const char*> infoPointers;
+
+    // Nur beim ersten Laden abrufen
+    if (infoStrings.find(paramId) == infoStrings.end()) {
+        // String aus der Config laden
+        infoStrings[paramId] = config.get<String>(paramId.c_str());
+
+        // Den rohen C-String Pointer in der zweiten Map speichern
+        infoPointers[paramId] = infoStrings[paramId].c_str();
+    }
+
+    // Wir geben die SPEICHERADRESSE des Pointers zurück (const char**)
+    return &infoPointers[paramId];
+}
+
+// Gibt das Array der Enum-Optionen zurück
+inline const char* const* getMenuEnumOptions(const std::string& paramId) {
+    auto param = ParameterRegistry::getInstance().getParameterById(paramId.c_str());
+    if (param && param->isEnum()) {
+        return param->getEnumOptions();
+    }
+    return nullptr;
+}
+// Gibt die Anzahl der Enum-Optionen zurück
+inline size_t getMenuEnumCount(const std::string& paramId) {
+    auto param = ParameterRegistry::getInstance().getParameterById(paramId.c_str());
+    if (param && param->isEnum()) {
+        return param->getEnumCount();
+    }
+    return 0;
 }
 
 bool hasScale() {
@@ -172,21 +205,22 @@ void initMenu(U8G2& display) {
     m_pidGeneral->AddBackItem("Back", bitmap_icon_back);
 
     Menu *m_pidRegular = new Menu(display);
-    m_pidRegular->AddInputItem("Kp", "Kp", "", "", PID_KP_REGULAR_MIN, PID_KP_REGULAR_MAX, makeSaveCallback("pid.regular.kp", getMenuVar<double>("pid.regular.kp")), getMenuVar<double>("pid.regular.kp"), bitmap_icon_pid);
-    m_pidRegular->AddInputItem("Tn", "Tn", "", "", PID_TN_REGULAR_MIN, PID_TN_REGULAR_MAX, makeSaveCallback("pid.regular.tn", getMenuVar<double>("pid.regular.tn")), getMenuVar<double>("pid.regular.tn"), bitmap_icon_pid);
-    m_pidRegular->AddInputItem("Tv", "Tv", "", "", PID_TV_REGULAR_MIN, PID_TV_REGULAR_MAX, makeSaveCallback("pid.regular.tv", getMenuVar<double>("pid.regular.tv")), getMenuVar<double>("pid.regular.tv"), bitmap_icon_pid);
+    m_pidRegular->AddInputItem("Kp", "Kp", "", "", PID_KP_REGULAR_MIN, PID_KP_REGULAR_MAX, makeSaveCallback("pid.regular.kp", getMenuVar<double>("pid.regular.kp")), getMenuVar<double>("pid.regular.kp"));
+    m_pidRegular->AddInputItem("Tn", "Tn", "", "", PID_TN_REGULAR_MIN, PID_TN_REGULAR_MAX, makeSaveCallback("pid.regular.tn", getMenuVar<double>("pid.regular.tn")), getMenuVar<double>("pid.regular.tn"));
+    m_pidRegular->AddInputItem("Tv", "Tv", "", "", PID_TV_REGULAR_MIN, PID_TV_REGULAR_MAX, makeSaveCallback("pid.regular.tv", getMenuVar<double>("pid.regular.tv")), getMenuVar<double>("pid.regular.tv"));
+    m_pidRegular->AddInputItem("I Max", "I Max", "", "", PID_I_MAX_REGULAR_MIN, PID_I_MAX_REGULAR_MAX, makeSaveCallback("pid.regular.i_max", getMenuVar<double>("pid.regular.i_max")), getMenuVar<double>("pid.regular.i_max"));
     m_pidRegular->AddBackItem("Back", bitmap_icon_back);
 
     Menu *m_pidBrewDetection = new Menu(display);
     m_pidBrewDetection->AddToggleItem("Brew Detection", makeSaveCallback("pid.bd.enabled", getMenuVar<bool>("pid.bd.enabled")), getMenuVar<bool>("pid.bd.enabled"), bitmap_icon_pid);
-    m_pidBrewDetection->AddInputItem("Kp", "Kp", "", "", PID_KP_BD_MIN, PID_KP_BD_MAX, makeSaveCallback("pid.bd.kp", getMenuVar<double>("pid.bd.kp")), getMenuVar<double>("pid.bd.kp"), bitmap_icon_pid);
-    m_pidBrewDetection->AddInputItem("Tn", "Tn", "", "", PID_TN_BD_MIN, PID_TN_BD_MAX, makeSaveCallback("pid.bd.tn", getMenuVar<double>("pid.bd.tn")), getMenuVar<double>("pid.bd.tn"), bitmap_icon_pid);
-    m_pidBrewDetection->AddInputItem("Tv", "Tv", "", "", PID_TV_BD_MIN, PID_TV_BD_MAX, makeSaveCallback("pid.bd.tv", getMenuVar<double>("pid.bd.tv")), getMenuVar<double>("pid.bd.tv"), bitmap_icon_pid);
+    m_pidBrewDetection->AddInputItem("Kp", "Kp", "", "", PID_KP_BD_MIN, PID_KP_BD_MAX, makeSaveCallback("pid.bd.kp", getMenuVar<double>("pid.bd.kp")), getMenuVar<double>("pid.bd.kp"));
+    m_pidBrewDetection->AddInputItem("Tn", "Tn", "", "", PID_TN_BD_MIN, PID_TN_BD_MAX, makeSaveCallback("pid.bd.tn", getMenuVar<double>("pid.bd.tn")), getMenuVar<double>("pid.bd.tn"));
+    m_pidBrewDetection->AddInputItem("Tv", "Tv", "", "", PID_TV_BD_MIN, PID_TV_BD_MAX, makeSaveCallback("pid.bd.tv", getMenuVar<double>("pid.bd.tv")), getMenuVar<double>("pid.bd.tv"));
     m_pidBrewDetection->AddBackItem("Back", bitmap_icon_back);
 
     Menu *m_pidSteam = new Menu(display);
-    m_pidSteam->AddInputItem("Kp", "Kp", "", "", PID_KP_STEAM_MIN, PID_KP_STEAM_MAX, makeSaveCallback("pid.steam.kp", getMenuVar<double>("pid.steam.kp")), getMenuVar<double>("pid.steam.kp"), bitmap_icon_pid);
-    m_pidSteam->AddInputItem("Setpoint", "Setpoint", "", "s", BREW_SETPOINT_MIN, BREW_SETPOINT_MAX, makeSaveCallback("brew.setpoint", getMenuVar<double>("brew.setpoint")), getMenuVar<double>("brew.setpoint"), bitmap_icon_temp);
+    m_pidSteam->AddInputItem("Kp", "Kp", "", "", PID_KP_STEAM_MIN, PID_KP_STEAM_MAX, makeSaveCallback("pid.steam.kp", getMenuVar<double>("pid.steam.kp")), getMenuVar<double>("pid.steam.kp"));
+    m_pidSteam->AddInputItem("Setpoint", "Setpoint", "", "s", STEAM_SETPOINT_MIN, STEAM_SETPOINT_MAX, makeSaveCallback("steam.setpoint", getMenuVar<double>("steam.setpoint")), getMenuVar<double>("steam.setpoint"), bitmap_icon_temp);
     m_pidSteam->AddBackItem("Back", bitmap_icon_back);
 
     Menu *m_brewSettings = new Menu(display);
@@ -198,7 +232,7 @@ void initMenu(U8G2& display) {
     m_brewSettings->AddBackItem("Back", bitmap_icon_back);
 
     Menu *m_preInfusion = new Menu(display);
-    m_preInfusion->AddToggleItem("Enabled", makeSaveCallback("brew.pre_infusion.enabled", getMenuVar<bool>("brew.pre_infusion.enabled")), getMenuVar<bool>("brew.pre_infusion.enabled"));
+    m_preInfusion->AddToggleItem("Pre Infusion", makeSaveCallback("brew.pre_infusion.enabled", getMenuVar<bool>("brew.pre_infusion.enabled")), getMenuVar<bool>("brew.pre_infusion.enabled"));
     m_preInfusion->AddInputItem("Time", "Time", "", "s", PRE_INFUSION_TIME_MIN, PRE_INFUSION_TIME_MAX, makeSaveCallback("brew.pre_infusion.time", getMenuVar<double>("brew.pre_infusion.time")), getMenuVar<double>("brew.pre_infusion.time"), bitmap_icon_clock);
     m_preInfusion->AddInputItem("Pause", "Pause", "", "s", PRE_INFUSION_PAUSE_MIN, PRE_INFUSION_PAUSE_MAX, makeSaveCallback("brew.pre_infusion.pause", getMenuVar<double>("brew.pre_infusion.pause")), getMenuVar<double>("brew.pre_infusion.pause"), bitmap_icon_clock);
     m_preInfusion->AddBackItem("Back", bitmap_icon_back);
@@ -210,7 +244,7 @@ void initMenu(U8G2& display) {
     m_backflushing->AddBackItem("Back", bitmap_icon_back);
 
     Menu *m_standby = new Menu(display);
-    m_standby->AddToggleItem("Enabled", makeSaveCallback("standby.enabled", getMenuVar<bool>("standby.enabled")), getMenuVar<bool>("standby.enabled"), bitmap_icon_power);
+    m_standby->AddToggleItem("Standby", makeSaveCallback("standby.enabled", getMenuVar<bool>("standby.enabled")), getMenuVar<bool>("standby.enabled"), bitmap_icon_power);
     m_standby->AddInputItem("Time", "Time", "", "s", STANDBY_MODE_TIME_MIN, STANDBY_MODE_TIME_MAX, makeSaveCallback("standby.time", getMenuVar<double>("standby.time")), getMenuVar<double>("standby.time"), bitmap_icon_clock);
     m_standby->AddBackItem("Back", bitmap_icon_back);
 
@@ -232,36 +266,53 @@ void initMenu(U8G2& display) {
     Menu *m_hw_switch = new Menu(display);
     m_hw_switch->AddToggleItem("Brew Switch", makeSaveCallback("hardware.switches.brew.enabled", getMenuVar<bool>("hw.switches.brew.enabled")), getMenuVar<bool>("hw.switches.brew.enabled"));
 
+    Menu *m_mqtt = new Menu(display);
+    m_mqtt->AddToggleItem("MQTT", makeSaveCallback("mqtt.enabled", getMenuVar<bool>("mqtt.enabled")), getMenuVar<bool>("mqtt.enabled"));
+    m_mqtt->AddToggleItem("Hass.io", makeSaveCallback("mqtt.hassio.enabled", getMenuVar<bool>("mqtt.hassio.enabled")), getMenuVar<bool>("mqtt.hassio.enabled"));
+
+    std::vector<MenuInfoEntry> mqttInfo = {
+        {"Broker", getMenuInfoVar("mqtt.broker")},
+        {"Port", getMenuInfoVar("mqtt.port")},
+        {"User", getMenuInfoVar("mqtt.username")},
+        {"Pass", getMenuInfoVar("mqtt.password")},
+        {"Topic", getMenuInfoVar("mqtt.topic")},
+        {"Hass.io Prefix", getMenuInfoVar("mqtt.hassio.prefix")}
+    };
+    m_mqtt->AddInfoItem("Info", mqttInfo);
+    m_mqtt->AddBackItem("Back", bitmap_icon_back);
+
+
+    Menu *m_system_debug = new Menu(display);
+    m_system_debug->AddToggleItem("Loop Timing", makeSaveCallback("system.timing_debug.enabled", getMenuVar<bool>("system.timing_debug.enabled")), getMenuVar<bool>("system.timing_debug.enabled"));
+    m_system_debug->AddToggleItem("Display Log", makeSaveCallback("system.showdisplay.enabled", getMenuVar<bool>("system.showdisplay.enabled")), getMenuVar<bool>("system.showdisplay.enabled"));
+    m_system_debug->AddBackItem("Back", bitmap_icon_back);
+
+    std::vector<MenuInfoEntry> systemInfo = {
+        {"Hostname", getMenuInfoVar("system.hostname")},
+        {"OTA Pass", getMenuInfoVar("system.ota_password")},
+        {"Auth User", getMenuInfoVar("system.auth.username")},
+        {"Auth Pass", getMenuInfoVar("system.auth.password")},
+
+
+    };
+
+    Menu *m_system = new Menu(display);
+    m_system->AddToggleItem("Offline Mode", makeSaveCallback("system.offline_mode", getMenuVar<bool>("system.offline_mode")), getMenuVar<bool>("system.offline_mode"));
+    m_system->AddToggleItem("Auth", makeSaveCallback("system.auth.enabled", getMenuVar<bool>("system.auth.enabled")), getMenuVar<bool>("system.auth.enabled"));
+    m_system->AddEnumItem("Log Level", "LogLevel", getMenuEnumOptions("system.log_level"), getMenuEnumCount("system.log_level"), getMenuVar<uint8_t>("system.log_level"), makeSaveCallback("system.log_level", getMenuVar<int>("system.log_level")), true);
+    m_system->AddSubMenu("Debug", *m_system_debug, { config.get<int>("system.log_level") == static_cast<int>(Logger::Level::DEBUG)});
+    m_system->AddInfoItem("Info", systemInfo);
+    m_system->AddBackItem("Back", bitmap_icon_back);
+
 
     /*
-            // // MQTT
-            // _configDefs.emplace("mqtt.enabled", ConfigDef::forBool(false));
-            // _configDefs.emplace("mqtt.broker", ConfigDef::forString("", MQTT_BROKER_MAX_LENGTH));
-            // _configDefs.emplace("mqtt.port", ConfigDef::forInt(1883, 1, 65535));
-            // _configDefs.emplace("mqtt.username", ConfigDef::forString(MQTT_USERNAME, USERNAME_MAX_LENGTH));
-            // _configDefs.emplace("mqtt.password", ConfigDef::forString(MQTT_PASSWORD, PASSWORD_MAX_LENGTH));
-            // _configDefs.emplace("mqtt.topic", ConfigDef::forString(MQTT_TOPIC, MQTT_TOPIC_MAX_LENGTH));
-            // _configDefs.emplace("mqtt.hassio.enabled", ConfigDef::forBool(false));
-            // _configDefs.emplace("mqtt.hassio.prefix", ConfigDef::forString(MQTT_HASSIO_PREFIX, MQTT_HASSIO_PREFIX_MAX_LENGTH));
 
-            // System
-            // _configDefs.emplace("system.hostname", ConfigDef::forString(HOSTNAME, HOSTNAME_MAX_LENGTH));
-            // _configDefs.emplace("system.ota_password", ConfigDef::forString(OTAPASS, PASSWORD_MAX_LENGTH));
-            // _configDefs.emplace("system.offline_mode", ConfigDef::forBool(false));
-            // _configDefs.emplace("system.log_level", ConfigDef::forInt(static_cast<int>(Logger::Level::INFO), 0, 5));
-            // _configDefs.emplace("system.auth.enabled", ConfigDef::forBool(false));
-            // _configDefs.emplace("system.auth.username", ConfigDef::forString(AUTH_USERNAME, USERNAME_MAX_LENGTH));
-            // _configDefs.emplace("system.auth.password", ConfigDef::forString(AUTH_PASSWORD, PASSWORD_MAX_LENGTH));
-
-            // Debugging
-            // _configDefs.emplace("system.timing_debug.enabled", ConfigDef::forBool(false));
-            // _configDefs.emplace("system.showdisplay.enabled", ConfigDef::forBool(true));
 
             // Display
             // _configDefs.emplace("display.template", ConfigDef::forInt(0, 0, 4));
             // _configDefs.emplace("display.inverted", ConfigDef::forBool(false));
             // _configDefs.emplace("display.language", ConfigDef::forInt(1, 0, 2));
-    */
+
 
             // _configDefs.emplace("display.blinking.mode", ConfigDef::forInt(1, 0, 2));
             // _configDefs.emplace("display.blinking.delta", ConfigDef::forDouble(BLINKING_DELTA, BLINKING_DELTA_MIN, BLINKING_DELTA_MAX));
