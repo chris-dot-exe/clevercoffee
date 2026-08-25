@@ -50,6 +50,9 @@ const char* switchTypes[2] = {"Momentary", "Toggle"};
 const char* switchModes[2] = {"Normally Open", "Normally Closed"};
 const char* relayTriggerTypes[2] = {"Low Trigger", "High Trigger"};
 
+const char* menuInput[2] = {"Buttons", "Rotary Encoder"};
+const char* menuEncoder[3] = {"Full Quad", "Half Quad", "Single Edge"};
+
 static constexpr const char* const brewModes[] = {"Manual", "Automatic"};
 static constexpr const char* const displayTemplates[] = {"Standard", "Minimal", "Temp only", "Scale", "Upright"};
 static constexpr const char* const displayLanguages[] = {"Deutsch", "English", "Español"};
@@ -638,6 +641,33 @@ void ParameterRegistry::initialize(Config& config) {
         10,
         "Delta from setpoint for blinking temperature display"
     );
+    addBoolConfigParam(
+        "display.menu.enabled",
+        "Enable OLED Display Menu",
+        sDisplaySection,
+        912,
+        nullptr,
+        "Enable menu. Selecting this option will enable the menu on the OLED display.",
+        [] { return true; },
+        true
+    );
+    addBoolConfigParam(
+        "display.menu.input.inverted",
+        "Invert OLED Display Menu Input",
+        sDisplaySection,
+        913,
+        nullptr,
+        "Invert menu input. Selecting this option will invert the input (rotation direction) for the OLED display within menu items."
+    );
+    addBoolConfigParam(
+        "display.menu.scroll.inverted",
+        "Invert OLED Display Menu Scroll direction",
+        sDisplaySection,
+        914,
+        nullptr,
+        "Invert menu scroll direction. Selecting this option will invert the scroll direction for the OLED display within the menu tree."
+    );
+
 
     // MQTT section
     addBoolConfigParam(
@@ -876,6 +906,31 @@ void ParameterRegistry::initialize(Config& config) {
         [] { return true; },
         true
     );
+    addEnumConfigParam(
+       "hardware.oled.menu.input",
+       "OLED Display Menu Input Type",
+       sHardwareOledSection,
+       2004,
+       nullptr,
+       menuInput,
+       2,
+       "Select your OLED display menu input type (3 buttons or rotary encoder)",
+       [] { return true; },
+       true
+   );
+
+    addEnumConfigParam(
+   "hardware.oled.menu.encoder_type",
+   "OLED Display Menu Input Type",
+   sHardwareOledSection,
+   2005,
+   nullptr,
+   menuEncoder,
+   3,
+   "Select your rotary encoder qudrature",
+   [&config] { return config.get<int>("hardware.oled.menu.input") == 1; },
+   true
+);
 
     // Relays
     addEnumConfigParam(

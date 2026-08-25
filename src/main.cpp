@@ -207,10 +207,6 @@ double brewPidDelay = BREW_PID_DELAY; // Time PID will be disabled after brew st
 bool standbyModeOn = false;
 double standbyModeTime = STANDBY_MODE_TIME;
 
-// TODO Menu - check if needed and may change to boolean
-bool menuInputInvert = false;
-bool menuScrollInvert = false;
-
 #include "standby.h"
 
 // Variables to hold PID values (Temp input, Heater output)
@@ -972,6 +968,12 @@ void setup() {
             }
             else {
                 displayLogo(String("Version ") + '\n' + String(sysVersion), true);
+            }
+
+            // Display Menu
+            if (config.get<bool>("display.menu.enabled")) {
+                LOG(DEBUG, "Display menu enabled");
+                initMenu(*u8g2);
             }
         }
         else {

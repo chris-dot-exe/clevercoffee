@@ -6,27 +6,29 @@
 #include <button.h>
 #include <hardware/pinmapping.h>
 #include <icons/menuIcons.h>
+#include <Logger.h>
 
 enum MENUINPUT {
     BUTTONS,
     ROTARY,
 };
 
-Menu* menu;
+enum MENUENCODER {
+    FULL_QUAD,
+    HALF_QUAD,
+    SINGLE_EDGE,
+};
 
-// TODO Menu: add setting to web config
-#define MENU_INPUT MENUINPUT::ROTARY
+inline Menu* menu;
 
-GPIOPin* menuEnterPin;
-GPIOPin* menuUpPin;
-GPIOPin* menuDownPin;
-ESP32Encoder encoder;
-QueueHandle_t button_events;
-button_event_t ev;
-bool invertMenuInput;
-bool invertScrollInput;
+inline GPIOPin* menuEnterPin;
+inline GPIOPin* menuUpPin;
+inline GPIOPin* menuDownPin;
+inline ESP32Encoder encoder;
+inline QueueHandle_t button_events;
+inline button_event_t ev;
 
-int last = 0;
+inline int last = 0;
 
 template <typename T>
 inline auto makeSaveCallback(const char* param, T& value) {
@@ -50,25 +52,19 @@ inline T& getMenuVar(const std::string& paramId) {
 
 // Spezieller Helper für MenuInfoEntry (gibt const char** zurück)
 inline const char** getMenuInfoVar(const std::string& paramId) {
-    // 1. Map hält das eigentliche Arduino String-Objekt dauerhaft am Leben
     static std::map<std::string, String> infoStrings;
-    // 2. Map hält den dazugehörigen const char* Pointer, dessen Adresse das Menü braucht
     static std::map<std::string, const char*> infoPointers;
 
-    // Nur beim ersten Laden abrufen
     if (infoStrings.find(paramId) == infoStrings.end()) {
-        // String aus der Config laden
         infoStrings[paramId] = config.get<String>(paramId.c_str());
 
-        // Den rohen C-String Pointer in der zweiten Map speichern
         infoPointers[paramId] = infoStrings[paramId].c_str();
     }
 
-    // Wir geben die SPEICHERADRESSE des Pointers zurück (const char**)
     return &infoPointers[paramId];
 }
 
-// Gibt das Array der Enum-Optionen zurück
+// Return array of enum options
 inline const char* const* getMenuEnumOptions(const std::string& paramId) {
     auto param = ParameterRegistry::getInstance().getParameterById(paramId.c_str());
     if (param && param->isEnum()) {
@@ -76,7 +72,8 @@ inline const char* const* getMenuEnumOptions(const std::string& paramId) {
     }
     return nullptr;
 }
-// Gibt die Anzahl der Enum-Optionen zurück
+
+// Return number of enum options
 inline size_t getMenuEnumCount(const std::string& paramId) {
     auto param = ParameterRegistry::getInstance().getParameterById(paramId.c_str());
     if (param && param->isEnum()) {
@@ -89,20 +86,14 @@ bool hasScale() {
     return config.get<bool>("hardware.sensors.scale.enabled");
 }
 
-void saveInputInvert() {
-    menu->InvertMenuInput(reinterpret_cast<bool&>(menuInputInvert));
-    //sysParaDisplayMenuInvert.setStorage(true);
-}
 
-void saveScrollInvert() {
-    menu->InvertScrollInput(reinterpret_cast<bool&>(menuScrollInvert));
-    //sysParaDisplayMenuScrollInvert.setStorage(true);
-}
-
-
-void menuInputInit() {
-    switch (MENU_INPUT) {
+inline void menuInputInit() {
+    const int menuOn = config.get<int>("hardware.oled.menu.input");
+    LOGF(DEBUG, "menuInputInit() menuOn: %d", menuOn);
+    LOGF(DEBUG, "enter: %d, A: %d B: %d", PIN_MENU_ENTER, PIN_MENU_OUT_A, PIN_MENU_OUT_B);
+    switch (menuOn) {
         case MENUINPUT::BUTTONS:
+            LOG(DEBUG, "Using rotary encoder for menu input");
             menuEnterPin = new GPIOPin(PIN_MENU_ENTER, GPIOPin::IN_PULLUP);
             menuUpPin = new GPIOPin(PIN_MENU_OUT_A, GPIOPin::IN_PULLUP);
             menuDownPin = new GPIOPin(PIN_MENU_OUT_B, GPIOPin::IN_PULLUP);
@@ -112,16 +103,28 @@ void menuInputInit() {
 
             break;
         case MENUINPUT::ROTARY:
+            LOG(DEBUG, "Using rotary encoder for menu input");
             menuEnterPin = new GPIOPin(PIN_MENU_ENTER, GPIOPin::IN_PULLUP);
             menuUpPin = new GPIOPin(PIN_MENU_OUT_A, GPIOPin::IN_PULLUP);
             menuDownPin = new GPIOPin(PIN_MENU_OUT_B, GPIOPin::IN_PULLUP);
 
-            button_events = pulled_button_init(PIN_BIT(menuEnterPin->getPinNumber()), GPIO_PULLUP_ONLY);
-
             encoder.useInternalWeakPullResistors = puType::up;
-            encoder.attachFullQuad(PIN_MENU_OUT_A, PIN_MENU_OUT_B);
+
+            switch (config.get<int>("hardware.oled.menu.encoder_type")) {
+                case MENUENCODER::FULL_QUAD:
+                    encoder.attachFullQuad(PIN_MENU_OUT_A, PIN_MENU_OUT_B);
+                    break;
+                case MENUENCODER::HALF_QUAD:
+                    encoder.attachHalfQuad(PIN_MENU_OUT_A, PIN_MENU_OUT_B);
+                    break;
+                case MENUENCODER::SINGLE_EDGE:
+                    encoder.attachSingleEdge(PIN_MENU_OUT_A, PIN_MENU_OUT_B);
+                    break;
+            }
+
             encoder.setCount(0);
 
+            button_events = pulled_button_init(PIN_BIT(menuEnterPin->getPinNumber()), GPIO_PULLUP_ONLY);
 
             break;
         default:
@@ -130,26 +133,27 @@ void menuInputInit() {
 }
 
 void initMenu(U8G2& display) {
+    LOG(DEBUG, "initMenu()");
     menu = new Menu(display);
 
     auto& params = ParameterRegistry::getInstance();
 
     menuInputInit();
 
-    menu->InvertScrollInput(true);
-    menu->InvertMenuInput(true);
+    menu->InvertScrollInput(getMenuVar<bool>("display.menu.input.inverted"));
+    menu->InvertMenuInput(getMenuVar<bool>("display.menu.scroll.inverted"));
 
     /* Main Menu */
     menu->AddInputItem("Brew Temp.", "Brew Temperature", "", "°C", BREW_SETPOINT_MIN, BREW_SETPOINT_MAX, makeSaveCallback("brew.setpoint", getMenuVar<double>("brew.setpoint")), getMenuVar<double>("brew.setpoint"), bitmap_icon_temp, 0.1, 0.5);
     menu->AddInputItem("Steam Temp.", "Steam Temperature", "", "°C", STEAM_SETPOINT_MIN, STEAM_SETPOINT_MAX, makeSaveCallback("steam.setpoint", getMenuVar<double>("steam.setpoint")), getMenuVar<double>("steam.setpoint"), bitmap_icon_steam, 0.1, 0.5);
-
     menu->AddToggleItem("PID", makeSaveCallback("pid.enabled", getMenuVar<bool>("pid.enabled")), getMenuVar<bool>("pid.enabled"), bitmap_icon_pid);
 
     menu->SetEventHandler([&]() {
         if (xQueueReceive(button_events, &ev, 1 / portTICK_PERIOD_MS)) {
             if (ev.pin == menuEnterPin->getPinNumber()) {
+                LOG(DEBUG, "Menu: Enter");
                 if (standbyModeRemainingTimeMillis == 0) {
-                    resetStandbyTimer();
+                    resetStandbyTimer(machineState);
                     display.setPowerSave(0);
                     pidON = true;
                     if (steamON) {
@@ -164,24 +168,24 @@ void initMenu(U8G2& display) {
                     return;
                 }
                 if (ev.event == EventState::STATE_DOWN) {
-                    resetStandbyTimer();
+                    resetStandbyTimer(machineState);
                 }
                 menu->Event(EVENT_ENTER, EventState(ev.event));
             }
             else {
-                if (MENU_INPUT == MENUINPUT::BUTTONS) {
+                if (config.get<int>("hardware.oled.menu.input") == MENUINPUT::BUTTONS) {
                     if (ev.pin == menuUpPin->getPinNumber()) {
-                        resetStandbyTimer();
+                        resetStandbyTimer(machineState);
                         menu->Event(EVENT_UP, EventState(ev.event));
                     }
                     else if (ev.pin == menuDownPin->getPinNumber()) {
-                        resetStandbyTimer();
+                        resetStandbyTimer(machineState);
                         menu->Event(EVENT_DOWN, EventState(ev.event));
                     }
                 }
             }
         }
-        if (MENU_INPUT == MENUINPUT::ROTARY) {
+        if (config.get<int>("hardware.oled.menu.input") == MENUINPUT::ROTARY) {
             int32_t pos = encoder.getCount() / ENCODER_CLICKS_PER_NOTCH;
             if (pos < last) {
                 menu->Event(EVENT_UP, EventState(EventState::STATE_DOWN));
@@ -198,37 +202,48 @@ void initMenu(U8G2& display) {
         }
     });
 
-    Menu* m_pidGeneral = new Menu(display);
-    m_pidGeneral->AddToggleItem("PID Enabled", makeSaveCallback("pid.enabled", getMenuVar<bool>("pid.enabled")), getMenuVar<bool>("pid.enabled"), bitmap_icon_pid);
-    m_pidGeneral->AddToggleItem("Use PonM", makeSaveCallback("pid.use_ponm", getMenuVar<bool>("pid.use_ponm")), getMenuVar<bool>("pid.use_ponm"));
-    m_pidGeneral->AddInputItem("EMA Factor", "EMA Factor", "", "", PID_EMA_FACTOR_MIN, PID_EMA_FACTOR_MAX, makeSaveCallback("pid.ema_factor", getMenuVar<double>("pid.ema_factor")), getMenuVar<double>("pid.ema_factor"));
-    m_pidGeneral->AddBackItem("Back", bitmap_icon_back);
+    Menu* m_pidMenu = new Menu(display);
+    m_pidMenu->AddToggleItem("PID", makeSaveCallback("pid.enabled", getMenuVar<bool>("pid.enabled")), getMenuVar<bool>("pid.enabled"), bitmap_icon_pid);
+    m_pidMenu->AddToggleItem("PonM", makeSaveCallback("pid.use_ponm", getMenuVar<bool>("pid.use_ponm")), getMenuVar<bool>("pid.use_ponm"));
+    m_pidMenu->AddInputItem("EMA Factor", "EMA Factor", "", "", PID_EMA_FACTOR_MIN, PID_EMA_FACTOR_MAX, makeSaveCallback("pid.ema_factor", getMenuVar<double>("pid.ema_factor")), getMenuVar<double>("pid.ema_factor"));
+    m_pidMenu->AddInputItem("Kp", "Kp", "", "", PID_KP_REGULAR_MIN, PID_KP_REGULAR_MAX, makeSaveCallback("pid.regular.kp", getMenuVar<double>("pid.regular.kp")), getMenuVar<double>("pid.regular.kp"));
+    m_pidMenu->AddInputItem("Tn", "Tn", "", "", PID_TN_REGULAR_MIN, PID_TN_REGULAR_MAX, makeSaveCallback("pid.regular.tn", getMenuVar<double>("pid.regular.tn")), getMenuVar<double>("pid.regular.tn"));
+    m_pidMenu->AddInputItem("Tv", "Tv", "", "", PID_TV_REGULAR_MIN, PID_TV_REGULAR_MAX, makeSaveCallback("pid.regular.tv", getMenuVar<double>("pid.regular.tv")), getMenuVar<double>("pid.regular.tv"));
+    m_pidMenu->AddInputItem("I Max", "I Max", "", "", PID_I_MAX_REGULAR_MIN, PID_I_MAX_REGULAR_MAX, makeSaveCallback("pid.regular.i_max", getMenuVar<double>("pid.regular.i_max")), getMenuVar<double>("pid.regular.i_max"));
+    m_pidMenu->AddInputItem("Steam Kp", "Steam Kp", "", "", PID_KP_STEAM_MIN, PID_KP_STEAM_MAX, makeSaveCallback("pid.steam.kp", getMenuVar<double>("pid.steam.kp")), getMenuVar<double>("pid.steam.kp"));
 
-    Menu *m_pidRegular = new Menu(display);
-    m_pidRegular->AddInputItem("Kp", "Kp", "", "", PID_KP_REGULAR_MIN, PID_KP_REGULAR_MAX, makeSaveCallback("pid.regular.kp", getMenuVar<double>("pid.regular.kp")), getMenuVar<double>("pid.regular.kp"));
-    m_pidRegular->AddInputItem("Tn", "Tn", "", "", PID_TN_REGULAR_MIN, PID_TN_REGULAR_MAX, makeSaveCallback("pid.regular.tn", getMenuVar<double>("pid.regular.tn")), getMenuVar<double>("pid.regular.tn"));
-    m_pidRegular->AddInputItem("Tv", "Tv", "", "", PID_TV_REGULAR_MIN, PID_TV_REGULAR_MAX, makeSaveCallback("pid.regular.tv", getMenuVar<double>("pid.regular.tv")), getMenuVar<double>("pid.regular.tv"));
-    m_pidRegular->AddInputItem("I Max", "I Max", "", "", PID_I_MAX_REGULAR_MIN, PID_I_MAX_REGULAR_MAX, makeSaveCallback("pid.regular.i_max", getMenuVar<double>("pid.regular.i_max")), getMenuVar<double>("pid.regular.i_max"));
-    m_pidRegular->AddBackItem("Back", bitmap_icon_back);
+   m_pidMenu->AddBackItem("Back", bitmap_icon_back);
 
+    // if (config.get<bool>("hardware.switches.brew.enabled"))
     Menu *m_pidBrewDetection = new Menu(display);
-    m_pidBrewDetection->AddToggleItem("Brew Detection", makeSaveCallback("pid.bd.enabled", getMenuVar<bool>("pid.bd.enabled")), getMenuVar<bool>("pid.bd.enabled"), bitmap_icon_pid);
+    m_pidBrewDetection->AddToggleItem("Brew PID", makeSaveCallback("pid.bd.enabled", getMenuVar<bool>("pid.bd.enabled")), getMenuVar<bool>("pid.bd.enabled"), bitmap_icon_pid);
     m_pidBrewDetection->AddInputItem("Kp", "Kp", "", "", PID_KP_BD_MIN, PID_KP_BD_MAX, makeSaveCallback("pid.bd.kp", getMenuVar<double>("pid.bd.kp")), getMenuVar<double>("pid.bd.kp"));
     m_pidBrewDetection->AddInputItem("Tn", "Tn", "", "", PID_TN_BD_MIN, PID_TN_BD_MAX, makeSaveCallback("pid.bd.tn", getMenuVar<double>("pid.bd.tn")), getMenuVar<double>("pid.bd.tn"));
     m_pidBrewDetection->AddInputItem("Tv", "Tv", "", "", PID_TV_BD_MIN, PID_TV_BD_MAX, makeSaveCallback("pid.bd.tv", getMenuVar<double>("pid.bd.tv")), getMenuVar<double>("pid.bd.tv"));
+    m_pidBrewDetection->AddInputItem("PID Delay", "PID Delay", "", "s", BREW_PID_DELAY_MIN, BREW_PID_DELAY_MAX, makeSaveCallback("brew.pid_delay", getMenuVar<double>("brew.pid_delay")), getMenuVar<double>("brew.pid_delay"), bitmap_icon_pid);
+
     m_pidBrewDetection->AddBackItem("Back", bitmap_icon_back);
 
-    Menu *m_pidSteam = new Menu(display);
-    m_pidSteam->AddInputItem("Kp", "Kp", "", "", PID_KP_STEAM_MIN, PID_KP_STEAM_MAX, makeSaveCallback("pid.steam.kp", getMenuVar<double>("pid.steam.kp")), getMenuVar<double>("pid.steam.kp"));
-    m_pidSteam->AddInputItem("Setpoint", "Setpoint", "", "s", STEAM_SETPOINT_MIN, STEAM_SETPOINT_MAX, makeSaveCallback("steam.setpoint", getMenuVar<double>("steam.setpoint")), getMenuVar<double>("steam.setpoint"), bitmap_icon_temp);
-    m_pidSteam->AddBackItem("Back", bitmap_icon_back);
+    Menu *m_temperatur = new Menu(display);
+    m_temperatur->AddInputItem("Brew Temp.", "Brew Setpoint", "", "°C", BREW_SETPOINT_MIN, BREW_SETPOINT_MAX, makeSaveCallback("brew.setpoint", getMenuVar<double>("brew.setpoint")), getMenuVar<double>("brew.setpoint"), bitmap_icon_temp, 0.1, 0.5);
+    m_temperatur->AddInputItem("Temp Offset", "Temp Offset", "", "°C", BREW_TEMP_OFFSET_MIN, BREW_TEMP_OFFSET_MAX, makeSaveCallback("brew.temp_offset", getMenuVar<double>("brew.temp_offset")), getMenuVar<double>("brew.temp_offset"), bitmap_icon_temp);
+    m_temperatur->AddInputItem("Steam Temp.", "Steam Setpoint", "", "s", STEAM_SETPOINT_MIN, STEAM_SETPOINT_MAX, makeSaveCallback("steam.setpoint", getMenuVar<double>("steam.setpoint")), getMenuVar<double>("steam.setpoint"), bitmap_icon_temp);
+    m_temperatur->AddBackItem("Back", bitmap_icon_back);
 
+
+    // if (config.get<bool>("hardware.switches.brew.enabled"))
     Menu *m_brewSettings = new Menu(display);
-    m_brewSettings->AddInputItem("Setpoint", "Setpoint", "", "s", BREW_SETPOINT_MIN, BREW_SETPOINT_MAX, makeSaveCallback("brew.setpoint", getMenuVar<double>("brew.setpoint")), getMenuVar<double>("brew.setpoint"));
-    m_brewSettings->AddInputItem("Temp Offset", "Temp Offset", "", "°C", BREW_TEMP_OFFSET_MIN, BREW_TEMP_OFFSET_MAX, makeSaveCallback("brew.temp_offset", getMenuVar<double>("brew.temp_offset")), getMenuVar<double>("brew.temp_offset"), bitmap_icon_temp);
-    m_brewSettings->AddInputItem("PID Delay", "PID Delay", "", "s", BREW_PID_DELAY_MIN, BREW_PID_DELAY_MAX, makeSaveCallback("brew.pid_delay", getMenuVar<double>("brew.pid_delay")), getMenuVar<double>("brew.pid_delay"), bitmap_icon_pid);
-    m_brewSettings->AddToggleItem("By Time", makeSaveCallback("brew.by_time.enabled", getMenuVar<bool>("brew.by_time.enabled")), getMenuVar<bool>("brew.by_time.enabled"), bitmap_icon_clock;
+    m_brewSettings->AddEnumItem("Brew Mode", "Brew Mode", getMenuEnumOptions("brew.mode"), getMenuEnumCount("brew.mode"), getMenuVar<uint8_t>("brew.mode"), makeSaveCallback("brew.mode", getMenuVar<int>("brew.mode")));
+    m_brewSettings->AddToggleItem("By Time", makeSaveCallback("brew.by_time.enabled", getMenuVar<bool>("brew.by_time.enabled")), getMenuVar<bool>("brew.by_time.enabled"), bitmap_icon_clock);
     m_brewSettings->AddInputItem("Target Time", "Target Time", "", "s", TARGET_BREW_TIME_MIN, TARGET_BREW_TIME_MAX, makeSaveCallback("brew.by_time.target_time", getMenuVar<double>("brew.by_time.target_time")), getMenuVar<double>("brew.by_time.target_time"), bitmap_icon_clock);
+
+    Menu *m_brewByWeight = new Menu(display);
+    m_brewByWeight->AddToggleItem("By Weight", makeSaveCallback("brew.by_weight.enabled", getMenuVar<bool>("brew.by_weight.enabled")), getMenuVar<bool>("brew.by_weight.enabled"), bitmap_icon_scale);
+    m_brewByWeight->AddInputItem("Target Weight", "Target Weight", "", "g", TARGET_BREW_WEIGHT_MIN, TARGET_BREW_WEIGHT_MAX, makeSaveCallback("brew.by_weight.target_weight", getMenuVar<double>("brew.by_weight.target_weight")), getMenuVar<double>("brew.by_weight.target_weight"));
+    m_brewByWeight->AddToggleItem("Auto Tare", makeSaveCallback("brew.by_weight.auto_tare", getMenuVar<bool>("brew.by_weight.auto_tare")), getMenuVar<bool>("brew.by_weight.auto_tare"));
+    m_brewByWeight->AddBackItem("Back", bitmap_icon_back);
+
+    m_brewSettings->AddSubMenu("By Weight", *m_brewByWeight, bitmap_icon_scale, config.get<bool>("hardware.sensors.scale.enabled"));
     m_brewSettings->AddBackItem("Back", bitmap_icon_back);
 
     Menu *m_preInfusion = new Menu(display);
@@ -237,6 +252,7 @@ void initMenu(U8G2& display) {
     m_preInfusion->AddInputItem("Pause", "Pause", "", "s", PRE_INFUSION_PAUSE_MIN, PRE_INFUSION_PAUSE_MAX, makeSaveCallback("brew.pre_infusion.pause", getMenuVar<double>("brew.pre_infusion.pause")), getMenuVar<double>("brew.pre_infusion.pause"), bitmap_icon_clock);
     m_preInfusion->AddBackItem("Back", bitmap_icon_back);
 
+    // if (config.get<bool>("hardware.switches.brew.enabled"))
     Menu *m_backflushing = new Menu(display);
     m_backflushing->AddInputItem("Cycles", "Cycles", "", "", BACKFLUSH_CYCLES_MIN, BACKFLUSH_CYCLES_MAX, makeSaveCallback("brew.backflushing.cycles", getMenuVar<double>("brew.backflushing.cycles")), getMenuVar<double>("brew.backflushing.cycles"));
     m_backflushing->AddInputItem("Fill Time", "Fill Time", "", "s", BACKFLUSH_FILL_TIME_MIN, BACKFLUSH_FILL_TIME_MAX, makeSaveCallback("brew.backflushing.fill_time", getMenuVar<double>("brew.backflushing.fill_time")), getMenuVar<double>("brew.backflushing.fill_time"), bitmap_icon_clock);
@@ -255,16 +271,57 @@ void initMenu(U8G2& display) {
     m_display->AddToggleItem("Fullscreen Hot Water Timer", makeSaveCallback("display.fullscreen_hot_water_timer", getMenuVar<bool>("display.fullscreen_hot_water_timer")), getMenuVar<bool>("display.fullscreen_hot_water_timer"), bitmap_icon_clock);
     m_display->AddInputItem("Post Brew Timer Duration", "Post Brew Timer Duration", "", "", POST_BREW_TIMER_DURATION_MIN, POST_BREW_TIMER_DURATION_MAX, makeSaveCallback("display.post_brew_timer_duration", getMenuVar<double>("display.post_brew_timer_duration")), getMenuVar<double>("display.post_brew_timer_duration"), bitmap_icon_clock);
     m_display->AddToggleItem("Heating Logo", makeSaveCallback("display.heating_logo", getMenuVar<bool>("display.heating_logo")), getMenuVar<bool>("display.heating_logo"));
+    m_display->AddEnumItem("Template", "Template", getMenuEnumOptions("display.template"), getMenuEnumCount("display.template"), getMenuVar<uint8_t>("display.template"), makeSaveCallback("display.template", getMenuVar<int>("display.template")));
+    m_display->AddToggleItem("Inverted", makeSaveCallback("display.inverted", getMenuVar<bool>("display.inverted")), getMenuVar<bool>("display.inverted"));
+    m_display->AddEnumItem("Language", "Language", getMenuEnumOptions("display.language"), getMenuEnumCount("display.language"), getMenuVar<uint8_t>("display.language"), makeSaveCallback("display.language", getMenuVar<int>("display.language")));
+    m_display->AddEnumItem("Blinking Mode", "Blinking Mode", getMenuEnumOptions("display.blinking.mode"), getMenuEnumCount("display.blinking.mode"), getMenuVar<uint8_t>("display.blinking.mode"), makeSaveCallback("display.blinking.mode", getMenuVar<int>("display.blinking.mode")));
+    m_display->AddInputItem("Blinking Delta", "Delta", "", "", BLINKING_DELTA_MIN, BLINKING_DELTA_MAX, makeSaveCallback("display.blinking.delta", getMenuVar<double>("display.blinking.delta")), getMenuVar<double>("display.blinking.delta"));
     m_display->AddBackItem("Back", bitmap_icon_back);
 
     Menu *m_hw_relay = new Menu(display);
-    m_hw_relay->AddToggleItem("Heater Trigger High", makeSaveCallback("hardware.relays.heater.trigger_type", getMenuVar<bool>("hw.relay.heater_trigger_high")), getMenuVar<bool>("hw.relay.heater_trigger_high"));
-    m_hw_relay->AddToggleItem("Valve Trigger High", makeSaveCallback("hardware.relays.valve.trigger_type", getMenuVar<bool>("hw.relay.valve_trigger_high")), getMenuVar<bool>("hw.relay.valve_trigger_high"));
-    m_hw_relay->AddToggleItem("Pump Trigger High", makeSaveCallback("hardware.relays.pump.trigger_type", getMenuVar<bool>("hw.relay.pump_trigger_high")), getMenuVar<bool>("hw.relay.pump_trigger_high"));
+    m_hw_relay->AddEnumItem("Heater Trigger", "Heater Trigger", getMenuEnumOptions("hardware.relays.heater.trigger_type"), getMenuEnumCount("hardware.relays.heater.trigger_type"), getMenuVar<uint8_t>("hw.relay.heater_trigger"), makeSaveCallback("hardware.relays.heater.trigger_type", getMenuVar<int>("hw.relay.heater_trigger")));
+    m_hw_relay->AddEnumItem("Valve Trigger", "Valve Trigger", getMenuEnumOptions("hardware.relays.valve.trigger_type"), getMenuEnumCount("hardware.relays.valve.trigger_type"), getMenuVar<uint8_t>("hw.relay.valve_trigger"), makeSaveCallback("hardware.relays.valve.trigger_type", getMenuVar<int>("hw.relay.valve_trigger")));
+    m_hw_relay->AddEnumItem("Pump Trigger", "Pump Trigger", getMenuEnumOptions("hardware.relays.pump.trigger_type"), getMenuEnumCount("hardware.relays.pump.trigger_type"), getMenuVar<uint8_t>("hw.relay.pump_trigger"), makeSaveCallback("hardware.relays.pump.trigger_type", getMenuVar<int>("hw.relay.pump_trigger")));
     m_hw_relay->AddBackItem("Back", bitmap_icon_back);
 
     Menu *m_hw_switch = new Menu(display);
     m_hw_switch->AddToggleItem("Brew Switch", makeSaveCallback("hardware.switches.brew.enabled", getMenuVar<bool>("hw.switches.brew.enabled")), getMenuVar<bool>("hw.switches.brew.enabled"));
+    m_hw_switch->AddEnumItem("Brew Switch Type", "Brew Switch Type", getMenuEnumOptions("hardware.switches.brew.type"), getMenuEnumCount("hardware.switches.brew.type"), getMenuVar<uint8_t>("hw.switches.brew.type"), makeSaveCallback("hardware.switches.brew.type", getMenuVar<int>("hw.switches.brew.type")));
+    m_hw_switch->AddEnumItem("Brew Switch Mode", "Brew Switch Mode", getMenuEnumOptions("hardware.switches.brew.mode"), getMenuEnumCount("hardware.switches.brew.mode"), getMenuVar<uint8_t>("hw.switches.brew.mode"), makeSaveCallback("hardware.switches.brew.mode", getMenuVar<int>("hw.switches.brew.mode")));
+    m_hw_switch->AddToggleItem("Steam Switch", makeSaveCallback("hardware.switches.steam.enabled", getMenuVar<bool>("hw.switches.steam.enabled")), getMenuVar<bool>("hw.switches.steam.enabled"));
+    m_hw_switch->AddEnumItem("Steam Switch Type", "Steam Switch Type", getMenuEnumOptions("hardware.switches.steam.type"), getMenuEnumCount("hardware.switches.steam.type"), getMenuVar<uint8_t>("hw.switches.steam.type"), makeSaveCallback("hardware.switches.steam.type", getMenuVar<int>("hw.switches.steam.type")));
+    m_hw_switch->AddEnumItem("Steam Switch Mode", "Steam Switch Mode", getMenuEnumOptions("hardware.switches.steam.mode"), getMenuEnumCount("hardware.switches.steam.mode"), getMenuVar<uint8_t>("hw.switches.steam.mode"), makeSaveCallback("hardware.switches.steam.mode", getMenuVar<int>("hw.switches.steam.mode")));
+    m_hw_switch->AddToggleItem("Power Switch", makeSaveCallback("hardware.switches.power.enabled", getMenuVar<bool>("hw.switches.power.enabled")), getMenuVar<bool>("hw.switches.power.enabled"));
+    m_hw_switch->AddEnumItem("Power Switch Type", "Power Switch Type", getMenuEnumOptions("hardware.switches.power.type"), getMenuEnumCount("hardware.switches.power.type"), getMenuVar<uint8_t>("hw.switches.power.type"), makeSaveCallback("hardware.switches.power.type", getMenuVar<int>("hw.switches.power.type")));
+    m_hw_switch->AddEnumItem("Power Switch Mode", "Power Switch Mode", getMenuEnumOptions("hardware.switches.power.mode"), getMenuEnumCount("hardware.switches.power.mode"), getMenuVar<uint8_t>("hw.switches.power.mode"), makeSaveCallback("hardware.switches.power.mode", getMenuVar<int>("hw.switches.power.mode")));
+    m_hw_switch->AddToggleItem("Hot Water Switch", makeSaveCallback("hardware.switches.hotwater.enabled", getMenuVar<bool>("hw.switches.hotwater.enabled")), getMenuVar<bool>("hw.switches.hotwater.enabled"));
+    m_hw_switch->AddEnumItem("Hot Water Switch Type", "Hot Water Switch Type", getMenuEnumOptions("hardware.switches.hotwater.type"), getMenuEnumCount("hardware.switches.hotwater.type"), getMenuVar<uint8_t>("hw.switches.hotwater.type"), makeSaveCallback("hardware.switches.hotwater.type", getMenuVar<int>("hw.switches.hotwater.type")));
+    m_hw_switch->AddEnumItem("Hot Water Switch Mode", "Hot Water Switch Mode", getMenuEnumOptions("hardware.switches.hotwater.mode"), getMenuEnumCount("hardware.switches.hotwater.mode"), getMenuVar<uint8_t>("hw.switches.hotwater.mode"), makeSaveCallback("hardware.switches.hotwater.mode", getMenuVar<int>("hw.switches.hotwater.mode")));
+    m_hw_switch->AddBackItem("Back", bitmap_icon_back);
+
+    Menu *m_leds = new Menu(display);
+    m_leds->AddToggleItem("Status LED", makeSaveCallback("hardware.leds.status.enabled", getMenuVar<bool>("hw.leds.status.enabled")), getMenuVar<bool>("hw.leds.status.enabled"));
+    m_leds->AddToggleItem("Status LED Invert", makeSaveCallback("hardware.leds.status.invert", getMenuVar<bool>("hw.leds.status.invert")), getMenuVar<bool>("hw.leds.status.invert"));
+    m_leds->AddToggleItem("Brew LED", makeSaveCallback("hardware.leds.brew.enabled", getMenuVar<bool>("hw.leds.brew.enabled")), getMenuVar<bool>("hw.leds.brew.enabled"));
+    m_leds->AddToggleItem("Brew LED Invert", makeSaveCallback("hardware.leds.brew.invert", getMenuVar<bool>("hw.leds.brew.invert")), getMenuVar<bool>("hw.leds.brew.invert"));
+    m_leds->AddToggleItem("Steam LED", makeSaveCallback("hardware.leds.steam.enabled", getMenuVar<bool>("hw.leds.steam.enabled")), getMenuVar<bool>("hw.leds.steam.enabled"));
+    m_leds->AddToggleItem("Steam LED Invert", makeSaveCallback("hardware.leds.steam.invert", getMenuVar<bool>("hw.leds.steam.invert")), getMenuVar<bool>("hw.leds.steam.invert"));
+
+    m_leds->AddBackItem("Back", bitmap_icon_back);
+
+    Menu *m_sensors = new Menu(display);
+    m_sensors->AddEnumItem("Temp. Sensor Type", "Temp. Sensor Type", getMenuEnumOptions("hardware.sensors.temperature.type"), getMenuEnumCount("hardware.sensors.temperature.type"), getMenuVar<uint8_t>("hw.sensors.temperature.type"), makeSaveCallback("hardware.sensors.temperature.type", getMenuVar<int>("hw.sensors.temperature.type")));
+    m_sensors->AddToggleItem("Pressure Sensor", makeSaveCallback("hardware.sensors.pressure.enabled", getMenuVar<bool>("hw.sensors.pressure.enabled")), getMenuVar<bool>("hw.sensors.pressure.enabled"));
+    m_sensors->AddToggleItem("Watertank Sensor", makeSaveCallback("hardware.sensors.watertank.enabled", getMenuVar<bool>("hw.sensors.watertank.enabled")), getMenuVar<bool>("hw.sensors.watertank.enabled"));
+    m_sensors->AddEnumItem("Watertank Mode", "Watertank Mode", getMenuEnumOptions("hardware.sensors.watertank.mode"), getMenuEnumCount("hardware.sensors.watertank.mode"), getMenuVar<uint8_t>("hw.sensors.watertank.mode"), makeSaveCallback("hardware.sensors.watertank.mode", getMenuVar<int>("hw.sensors.watertank.mode")));
+    m_sensors->AddToggleItem("Scale", makeSaveCallback("hardware.sensors.scale.enabled", getMenuVar<bool>("hw.sensors.scale.enabled")), getMenuVar<bool>("hw.sensors.scale.enabled"));
+    m_sensors->AddEnumItem("Scale Type", "Scale Type", getMenuEnumOptions("hardware.sensors.scale.type"), getMenuEnumCount("hardware.sensors.scale.type"), getMenuVar<uint8_t>("hw.sensors.scale.type"), makeSaveCallback("hardware.sensors.scale.type", getMenuVar<int>("hw.sensors.scale.type")));
+    m_sensors->AddInputItem("Scale Samples", "Samples", "", "", SCALE_SAMPLES_MIN, SCALE_SAMPLES_MAX, makeSaveCallback("hardware.sensors.scale.samples", getMenuVar<int>("hardware.sensors.scale.samples")), getMenuVar<double>("hardware.sensors.scale.samples"), 1.0, 5.0, true);
+    m_sensors->AddInputItem("Scale Calibration", "Calibration", "", "", SCALE_CALIBRATION_MIN, SCALE_CALIBRATION_MAX, makeSaveCallback("hardware.sensors.scale.calibration", getMenuVar<double>("hardware.sensors.scale.calibration")), getMenuVar<double>("hardware.sensors.scale.calibration"), 0.0, 5.0, true);
+    m_sensors->AddInputItem("Scale Calibration2", "Calibration2", "", "", SCALE_CALIBRATION_MIN, SCALE_CALIBRATION_MAX, makeSaveCallback("hardware.sensors.scale.calibration2", getMenuVar<double>("hardware.sensors.scale.calibration2")), getMenuVar<double>("hardware.sensors.scale.calibration2"), 0.0, 5.0, true);
+    m_sensors->AddInputItem("Scale known Weight", "Known Weight", "", "g", SCALE_KNOWN_WEIGHT_MIN, SCALE_KNOWN_WEIGHT_MAX, makeSaveCallback("hardware.sensors.scale.known_weight", getMenuVar<double>("hardware.sensors.scale.known_weight")), getMenuVar<double>("hardware.sensors.scale.known_weight"), 0.0, 5.0, true);
+
+    m_sensors->AddBackItem("Back", bitmap_icon_back);
 
     Menu *m_mqtt = new Menu(display);
     m_mqtt->AddToggleItem("MQTT", makeSaveCallback("mqtt.enabled", getMenuVar<bool>("mqtt.enabled")), getMenuVar<bool>("mqtt.enabled"));
@@ -276,7 +333,7 @@ void initMenu(U8G2& display) {
         {"User", getMenuInfoVar("mqtt.username")},
         {"Pass", getMenuInfoVar("mqtt.password")},
         {"Topic", getMenuInfoVar("mqtt.topic")},
-        {"Hass.io Prefix", getMenuInfoVar("mqtt.hassio.prefix")}
+        {"Prefix", getMenuInfoVar("mqtt.hassio.prefix")}
     };
     m_mqtt->AddInfoItem("Info", mqttInfo);
     m_mqtt->AddBackItem("Back", bitmap_icon_back);
@@ -304,146 +361,45 @@ void initMenu(U8G2& display) {
     m_system->AddInfoItem("Info", systemInfo);
     m_system->AddBackItem("Back", bitmap_icon_back);
 
+    Menu *m_pid_settings = new Menu(display);
+    m_pid_settings->AddSubMenu("General", *m_pidMenu);
+    m_pid_settings->AddSubMenu("Regular", *m_pidRegular);
+    m_pid_settings->AddSubMenu("Steam", *m_pidSteam);
+    m_pid_settings->AddSubMenu("Brew Detection", *m_pidBrewDetection, config.get<bool>("hardware.switches.brew.enabled"));
+    m_pid_settings->AddBackItem("Back", bitmap_icon_back);
 
-    /*
-
-
-            // Display
-            // _configDefs.emplace("display.template", ConfigDef::forInt(0, 0, 4));
-            // _configDefs.emplace("display.inverted", ConfigDef::forBool(false));
-            // _configDefs.emplace("display.language", ConfigDef::forInt(1, 0, 2));
-
-
-            // _configDefs.emplace("display.blinking.mode", ConfigDef::forInt(1, 0, 2));
-            // _configDefs.emplace("display.blinking.delta", ConfigDef::forDouble(BLINKING_DELTA, BLINKING_DELTA_MIN, BLINKING_DELTA_MAX));
-
-            // Hardware - OLED
-            // _configDefs.emplace("hardware.oled.enabled", ConfigDef::forBool(true));
-            // _configDefs.emplace("hardware.oled.type", ConfigDef::forInt(0, 0, 1));
-            // _configDefs.emplace("hardware.oled.address", ConfigDef::forInt(0, 0, 1));
-
-            // Hardware - Relays
-            _configDefs.emplace("hardware.relays.heater.trigger_type", ConfigDef::forInt(Relay::HIGH_TRIGGER, 0, 1));
-            _configDefs.emplace("hardware.relays.valve.trigger_type", ConfigDef::forInt(Relay::HIGH_TRIGGER, 0, 1));
-            _configDefs.emplace("hardware.relays.pump.trigger_type", ConfigDef::forInt(Relay::HIGH_TRIGGER, 0, 1));
-
-            // Hardware - Switches
-            _configDefs.emplace("hardware.switches.brew.enabled", ConfigDef::forBool(false));
-            _configDefs.emplace("hardware.switches.brew.type", ConfigDef::forInt(Switch::TOGGLE, 0, 2));
-            _configDefs.emplace("hardware.switches.brew.mode", ConfigDef::forInt(Switch::NORMALLY_OPEN, 0, 1));
-            _configDefs.emplace("hardware.switches.steam.enabled", ConfigDef::forBool(false));
-            _configDefs.emplace("hardware.switches.steam.type", ConfigDef::forInt(Switch::TOGGLE, 0, 2));
-            _configDefs.emplace("hardware.switches.steam.mode", ConfigDef::forInt(Switch::NORMALLY_OPEN, 0, 1));
-            _configDefs.emplace("hardware.switches.power.enabled", ConfigDef::forBool(false));
-            _configDefs.emplace("hardware.switches.power.type", ConfigDef::forInt(Switch::TOGGLE, 0, 2));
-            _configDefs.emplace("hardware.switches.power.mode", ConfigDef::forInt(Switch::NORMALLY_OPEN, 0, 1));
-            _configDefs.emplace("hardware.switches.hot_water.enabled", ConfigDef::forBool(false));
-            _configDefs.emplace("hardware.switches.hot_water.type", ConfigDef::forInt(Switch::TOGGLE, 0, 2));
-            _configDefs.emplace("hardware.switches.hot_water.mode", ConfigDef::forInt(Switch::NORMALLY_OPEN, 0, 1));
-
-            // Hardware - LEDs
-            _configDefs.emplace("hardware.leds.status.enabled", ConfigDef::forBool(false));
-            _configDefs.emplace("hardware.leds.status.inverted", ConfigDef::forBool(false));
-            _configDefs.emplace("hardware.leds.brew.enabled", ConfigDef::forBool(false));
-            _configDefs.emplace("hardware.leds.brew.inverted", ConfigDef::forBool(false));
-            _configDefs.emplace("hardware.leds.steam.enabled", ConfigDef::forBool(false));
-            _configDefs.emplace("hardware.leds.steam.inverted", ConfigDef::forBool(false));
-
-            // Hardware - Sensors
-            _configDefs.emplace("hardware.sensors.temperature.type", ConfigDef::forInt(0, 0, 1));
-            _configDefs.emplace("hardware.sensors.pressure.enabled", ConfigDef::forBool(false));
-            _configDefs.emplace("hardware.sensors.watertank.enabled", ConfigDef::forBool(false));
-            _configDefs.emplace("hardware.sensors.watertank.mode", ConfigDef::forInt(Switch::NORMALLY_CLOSED, 0, 1));
-
-            // Scale
-            _configDefs.emplace("hardware.sensors.scale.enabled", ConfigDef::forBool(false));
-            _configDefs.emplace("hardware.sensors.scale.samples", ConfigDef::forInt(SCALE_SAMPLES, 1, 20));
-            _configDefs.emplace("hardware.sensors.scale.type", ConfigDef::forInt(0, 0, 5));
-            _configDefs.emplace("hardware.sensors.scale.calibration", ConfigDef::forDouble(SCALE_CALIBRATION_FACTOR, SCALE_CALIBRATION_MIN, SCALE_CALIBRATION_MAX));
-            _configDefs.emplace("hardware.sensors.scale.calibration2", ConfigDef::forDouble(SCALE_CALIBRATION_FACTOR, SCALE_CALIBRATION_MIN, SCALE_CALIBRATION_MAX));
-            _configDefs.emplace("hardware.sensors.scale.known_weight", ConfigDef::forDouble(SCALE_KNOWN_WEIGHT, SCALE_KNOWN_WEIGHT_MIN, SCALE_KNOWN_WEIGHT_MAX));
+    Menu *m_hardware = new Menu(display);
+    m_hardware->AddSubMenu("Relays", *m_hw_relay);
+    m_hardware->AddSubMenu("Switches", *m_hw_switch);
+    m_hardware->AddSubMenu("LEDs", *m_leds);
+    m_hardware->AddSubMenu("Sensors", *m_sensors);
+    m_hardware->AddBackItem("Back", bitmap_icon_back);
 
 
-    // /* Brew Weight & Time */
-    // Menu* weightNTime = new Menu(display);
-    // weightNTime->AddInputItem("Brew by Time", "Brew Time", "", " s", TARGET_BREW_TIME_MIN, TARGET_BREW_TIME_MAX, makeSaveCallback("brew.by_time.target_time", getMenuVar<double>("brew.by_time.target_time")), getMenuVar<double>("brew.by_time.target_time"), bitmap_icon_clock);
-    //
-    // weightNTime->AddInputItem("Brew by Weight", "Brew Weight", "", "g", TARGET_BREW_WEIGHT_MIN, TARGET_BREW_WEIGHT_MAX, makeSaveCallback("brew.by_weight.target_weight",  getMenuVar<double>("brew.by_weight.target_weight")), getMenuVar<double>("brew.by_weight.target_weight"), bitmap_icon_scale, hasScale());
-    // weightNTime->AddBackItem("Back", bitmap_icon_back);
-    // menu->AddSubMenu(hasScale() ? "Brew Time & Weight" : "Brew Time", *weightNTime);
-    //
-    // /* Preinfusion */
-    // Menu* preInfusion = new Menu(display);
-    // preInfusion->AddInputItem("Preinfusion Pause", "Pause", "", "s", PRE_INFUSION_PAUSE_MIN, PRE_INFUSION_PAUSE_MAX, makeSaveCallback("brew.pre_infusion.pause", getMenuVar<double>("brew.pre_infusion.pause")), getMenuVar<double>("brew.pre_infusion.pause"), 1.0, 2.0, true);
-    // preInfusion->AddInputItem("Preinfusion", "Time", "", "s", PRE_INFUSION_TIME_MIN, PRE_INFUSION_TIME_MAX, makeSaveCallback("brew.pre_infusion.time", getMenuVar<double>("brew.pre_infusion.time")), getMenuVar<double>("brew.pre_infusion.time"), 1.0, 2.0, true);
-    // preInfusion->AddBackItem("Back", bitmap_icon_back);
-    // menu->AddSubMenu("Preinfusion", *preInfusion, config.get<bool>("brew.pre_infusion.enabled"));
-    // /*
-    //  * Maintenance Menu
-    //  * */
-    // Menu* maintenanceMenu = new Menu(display);
-    // maintenanceMenu->AddToggleItem("Backflush", getMenuVar<bool>("maintenance.backflush"), bitmap_icon_refresh);
-    // maintenanceMenu->AddBackItem("Back", bitmap_icon_back);
-    //
-    // menu->AddSubMenu("Maintenance", *maintenanceMenu, bitmap_icon_tools);
-    //
-    // /*
-    //  * Menu Menu
-    //  */
-    // Menu* menuMenu = new Menu(display);
-    // menuMenu->AddToggleItem("Invert Input", saveInputInvert, menuInputInvert, true);
-    // menuMenu->AddToggleItem("Invert Scroll", saveScrollInvert, menuScrollInvert, true);
-    // menuMenu->AddBackItem("Back", bitmap_icon_back);
-    // /*
-    //  * Advanced Menu
-    //  */
-    //
-    // Menu* advancedMenu = new Menu(display);
-    // advancedMenu->AddInputItem("Brew Temp. Offset", "Brew temp. offset", "", "°C", BREW_TEMP_OFFSET_MIN, BREW_TEMP_OFFSET_MAX, makeSaveCallback("brew.temp_offset", brewTempOffset), brewTempOffset, bitmap_icon_temp);
-    // advancedMenu->AddSubMenu("Menu", *menuMenu, true);
-    //
-    // /*
-    //  * Standby Menu
-    //  */
-    // Menu* standbyMenu = new Menu(display);
-    // standbyMenu->AddToggleItem("Standby", makeSaveCallback("standby.enabled", standbyModeOn), standbyModeOn, true);
-    // standbyMenu->AddInputItem("Standby Time", "Standby Time", "", " m", STANDBY_MODE_TIME_MIN, STANDBY_MODE_TIME_MAX, makeSaveCallback("standby.time", standbyModeTime), standbyModeTime, bitmap_icon_clock, 1.0, 2.0, true);
-    //
-    // standbyMenu->AddBackItem("Back", bitmap_icon_back);
-    // advancedMenu->AddSubMenu("Standby", *standbyMenu, bitmap_icon_sleep_mode);
-    //
-    // /* PID Settings */
-    // Menu* pidSettings = new Menu(display);
-    // pidSettings->AddToggleItem("Enable PonM", makeSaveCallback("pid.use_ponm", getMenuVar<bool>("pid.use_ponm")), getMenuVar<bool>("pid.use_ponm"));
-    // pidSettings->AddInputItem("Start Kp", "Start Kp", "", "", PID_KP_START_MIN, PID_KP_START_MAX, []() { (sysParaPidKpStart.setStorage(true)); }, startKp);
-    // pidSettings->AddInputItem("Start Tn", "Start Tn", "", "", PID_TN_START_MIN, PID_TN_START_MAX, []() { sysParaPidTnStart.setStorage(true); }, startTn);
-    // pidSettings->AddInputItem("Kp", "Kp", "", "", PID_KP_REGULAR_MIN, PID_KP_REGULAR_MAX, []() { sysParaPidKpReg.setStorage(true); }, aggKp);
-    // pidSettings->AddInputItem("Tn", "Tn (=Kp/Ki)", "", "", PID_TN_REGULAR_MIN, PID_TN_REGULAR_MAX, []() { sysParaPidTnReg.setStorage(true); }, aggTn);
-    // pidSettings->AddInputItem("Tv", "Tv (=Kd/Kp)", "", "", PID_TV_REGULAR_MIN, PID_TV_REGULAR_MAX, []() { sysParaPidTvReg.setStorage(true); }, aggTv);
-    // pidSettings->AddInputItem("Integrator Max", "Integrator Max", "", "", PID_I_MAX_REGULAR_MIN, PID_I_MAX_REGULAR_MAX, []() { sysParaPidIMaxReg.setStorage(true); }, aggIMax);
-    // pidSettings->AddInputItem("Steam Kp", "Steam Kp", "", "", PID_KP_STEAM_MIN, PID_KP_STEAM_MAX, []() { sysParaPidKpSteam.setStorage(true); }, steamKp);
-    //
-    // /* Brew PID Settings */
-    // Menu* brewPidSettings = new Menu(display);
-    // brewPidSettings->AddToggleItem("Enable Brew PID", []() { sysParaUsePonM.setStorage(true); }, reinterpret_cast<bool&>(useBDPID));
-    // brewPidSettings->AddInputItem("BD Kp", "BD Kp", "", "", PID_KP_BD_MIN, PID_KP_BD_MAX, []() { sysParaPidKpBd.setStorage(true); }, aggbKp);
-    // brewPidSettings->AddInputItem("BD Tn", "BD Tn (=Kp/Ki)", "", "", PID_TN_BD_MIN, PID_TN_BD_MAX, []() { sysParaPidTnBd.setStorage(true); }, aggbTn);
-    // brewPidSettings->AddInputItem("BD Tv", "BD Tv (=Kd/Kp)", "", "", PID_TV_BD_MIN, PID_TV_BD_MAX, []() { sysParaPidTvBd.setStorage(true); }, aggbTv);
-    // brewPidSettings->AddInputItem("PID BD Time", "PID BD Time", "", "s", BREW_SW_TIME_MIN, BREW_SW_TIME_MAX, []() { sysParaBrewSwTime.setStorage(true); }, brewtimesoftware, hasSoftwareDetection());
-    // brewPidSettings->AddInputItem("PID BD Sensitivity", "Sensitivity", "", "", BD_THRESHOLD_MIN, BD_THRESHOLD_MAX, []() { sysParaBrewThresh.setStorage(true); }, brewSensitivity, hasSoftwareDetection());
-    // brewPidSettings->AddBackItem("Back", bitmap_icon_back);
-    //
-    // pidSettings->AddSubMenu("Brew PID", *brewPidSettings);
-    // pidSettings->AddBackItem("Back", bitmap_icon_back);
-    //
-    // advancedMenu->AddSubMenu("PID Settings", *pidSettings, bitmap_icon_pid);
-    // advancedMenu->AddBackItem("Back", bitmap_icon_back);
-    // menu->AddSubMenu("Advanced", *advancedMenu, bitmap_icon_settings);
-    //
-    // menu->AddBackItem("Close Menu", bitmap_icon_back);
+    menu->AddSubMenu("Brew Settings", *m_brewSettings, config.get<bool>("hardware.switches.brew.enabled"));
+    menu->AddSubMenu("PID Settings", *m_pid_settings);
+    menu->AddSubMenu("Display", *m_display);
+    menu->AddSubMenu("MQTT", *m_mqtt);
+
+    /* Build Menu */
+    menu->AddSubMenu("Pre Infusion", *m_preInfusion);
+    menu->AddSubMenu("Standby", *m_standby);
+    menu->AddSubMenu("Hardware", *m_hardware);
+    menu->AddSubMenu("System", *m_system);
+
+    menu->AddSubMenu("Backflush", *m_backflushing, config.get<bool>("hardware.switches.brew.enabled"));
+    menu->AddBackItem("Back", bitmap_icon_back);
+
     menu->Init();
 }
 
 void menuLoop() {
+    // LOG(INFO, "Entering menuLoop()");
+    menu->EventHandler();
+
+    if (menu->IsOpen()) {
+        u8g2->clearBuffer();
+    }
+
     menu->Loop();
 }
