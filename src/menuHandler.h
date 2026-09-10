@@ -102,11 +102,13 @@ bool hasScale() {
 }
 
 
+inline int activeMenuInput = -1;
+
 inline void menuInputInit() {
-    const int menuOn = config.get<int>("hardware.oled.menu.input");
-    LOGF(DEBUG, "menuInputInit() menuOn: %d", menuOn);
+    activeMenuInput = config.get<int>("hardware.oled.menu.input");
+    LOGF(DEBUG, "menuInputInit() activeMenuInput: %d", activeMenuInput);
     LOGF(DEBUG, "enter: %d, A: %d B: %d", PIN_MENU_ENTER, PIN_MENU_OUT_A, PIN_MENU_OUT_B);
-    switch (menuOn) {
+    switch (activeMenuInput) {
         case MENUINPUT::BUTTONS:
             LOG(DEBUG, "Using rotary encoder for menu input");
             menuEnterPin = new GPIOPin(PIN_MENU_ENTER, GPIOPin::IN_PULLUP);
@@ -188,7 +190,7 @@ void initMenu(U8G2& display) {
                 menu->Event(EVENT_ENTER, EventState(ev.event));
             }
             else {
-                if (config.get<int>("hardware.oled.menu.input") == MENUINPUT::BUTTONS) {
+                if (activeMenuInput == MENUINPUT::BUTTONS) {
                     if (ev.pin == menuUpPin->getPinNumber()) {
                         resetStandbyTimer(machineState);
                         menu->Event(EVENT_UP, EventState(ev.event));
@@ -200,7 +202,7 @@ void initMenu(U8G2& display) {
                 }
             }
         }
-        if (config.get<int>("hardware.oled.menu.input") == MENUINPUT::ROTARY) {
+        if (activeMenuInput == MENUINPUT::ROTARY) {
             int32_t pos = encoder.getCount() / ENCODER_CLICKS_PER_NOTCH;
             if (pos < last) {
                 menu->Event(EVENT_UP, EventState(EventState::STATE_DOWN));

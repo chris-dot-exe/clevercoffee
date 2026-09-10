@@ -645,17 +645,17 @@ void ParameterRegistry::initialize(Config& config) {
         "display.menu.enabled",
         "Enable OLED Display Menu",
         sDisplaySection,
-        912,
+        921,
         nullptr,
         "Enable menu. Selecting this option will enable the menu on the OLED display.",
         [] { return true; },
-        true
+        false
     );
     addBoolConfigParam(
         "display.menu.input.inverted",
         "Invert OLED Display Menu Input",
         sDisplaySection,
-        913,
+        922,
         nullptr,
         "Invert menu input. Selecting this option will invert the input (rotation direction) for the OLED display within menu items."
     );
@@ -663,7 +663,7 @@ void ParameterRegistry::initialize(Config& config) {
         "display.menu.scroll.inverted",
         "Invert OLED Display Menu Scroll direction",
         sDisplaySection,
-        914,
+        923,
         nullptr,
         "Invert menu scroll direction. Selecting this option will invert the scroll direction for the OLED display within the menu tree."
     );
@@ -910,7 +910,7 @@ void ParameterRegistry::initialize(Config& config) {
        "hardware.oled.menu.input",
        "OLED Display Menu Input Type",
        sHardwareOledSection,
-       2004,
+       2011,
        nullptr,
        menuInput,
        2,
@@ -923,7 +923,7 @@ void ParameterRegistry::initialize(Config& config) {
    "hardware.oled.menu.encoder_type",
    "OLED Display Menu Input Type",
    sHardwareOledSection,
-   2005,
+   201,
    nullptr,
    menuEncoder,
    3,
