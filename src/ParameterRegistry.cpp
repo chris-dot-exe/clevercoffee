@@ -648,7 +648,7 @@ void ParameterRegistry::initialize(Config& config) {
         921,
         nullptr,
         "Enable menu. Selecting this option will enable the menu on the OLED display.",
-        [] { return true; },
+        [&config] { return config.get<bool>("hardware.oled.enabled"); },
         false
     );
     addBoolConfigParam(
@@ -657,7 +657,8 @@ void ParameterRegistry::initialize(Config& config) {
         sDisplaySection,
         922,
         nullptr,
-        "Invert menu input. Selecting this option will invert the input (rotation direction) for the OLED display within menu items."
+        "Invert menu input. Selecting this option will invert the input (rotation direction) for the OLED display within menu items.",
+        [&config] { return config.get<bool>("hardware.oled.enabled") && config.get<bool>("display.menu.enabled"); }
     );
     addBoolConfigParam(
         "display.menu.scroll.inverted",
@@ -665,7 +666,31 @@ void ParameterRegistry::initialize(Config& config) {
         sDisplaySection,
         923,
         nullptr,
-        "Invert menu scroll direction. Selecting this option will invert the scroll direction for the OLED display within the menu tree."
+        "Invert menu scroll direction. Selecting this option will invert the scroll direction for the OLED display within the menu tree.",
+        [&config] { return config.get<bool>("hardware.oled.enabled") && config.get<bool>("display.menu.enabled"); }
+    );
+
+    addBoolConfigParam(
+        "display.menu.idle_timeout.enabled",
+        "Enable Display Menu Idle Timeout",
+        sDisplaySection,
+        931,
+        nullptr,
+        "Enable menu idle timeout. Selecting this option will enable the menu idle timeout on the OLED display.",
+        [&config] { return config.get<bool>("hardware.oled.enabled") && config.get<bool>("display.menu.enabled"); }
+    );
+
+    addNumericConfigParam<int>(
+        "display.menu.idle_timeout.time",
+        "Menu Idle Timeout",
+        kInteger,
+        sDisplaySection,
+        932,
+        nullptr,
+        1,
+        600,
+        "Sets the idle timeout for the OLED display menu in seconds. If the menu is idle for this duration, it will automatically close.",
+        [&config] { return config.get<bool>("display.menu.idle_timeout.enabled") && config.get<bool>("hardware.oled.enabled") && config.get<bool>("display.menu.enabled"); }
     );
 
 
@@ -923,7 +948,7 @@ void ParameterRegistry::initialize(Config& config) {
    "hardware.oled.menu.encoder_type",
    "OLED Display Menu Input Type",
    sHardwareOledSection,
-   201,
+   2012,
    nullptr,
    menuEncoder,
    3,

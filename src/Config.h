@@ -327,13 +327,15 @@ class Config {
             _configDefs.emplace("display.menu.enabled", ConfigDef::forBool(true));
             _configDefs.emplace("display.menu.input.inverted", ConfigDef::forBool(false));
             _configDefs.emplace("display.menu.scroll.inverted", ConfigDef::forBool(false));
+            _configDefs.emplace("display.menu.idle_timeout.enabled", ConfigDef::forBool(true));
+            _configDefs.emplace("display.menu.idle_timeout.time", ConfigDef::forInt(60, 1, 600));
 
             // Hardware - OLED
             _configDefs.emplace("hardware.oled.enabled", ConfigDef::forBool(true));
             _configDefs.emplace("hardware.oled.type", ConfigDef::forInt(0, 0, 1));
             _configDefs.emplace("hardware.oled.address", ConfigDef::forInt(0, 0, 1));
-            _configDefs.emplace("hardware.oled.menu.input", ConfigDef::forInt(0,0,1));
-            _configDefs.emplace("hardware.oled.menu.encoder_type", ConfigDef::forInt(0,0,2));
+            _configDefs.emplace("hardware.oled.menu.input", ConfigDef::forInt(1,0,1));
+            _configDefs.emplace("hardware.oled.menu.encoder_type", ConfigDef::forInt(1,0,2));
 
             // Hardware - Relays
             _configDefs.emplace("hardware.relays.heater.trigger_type", ConfigDef::forInt(Relay::HIGH_TRIGGER, 0, 1));

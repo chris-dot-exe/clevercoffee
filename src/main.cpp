@@ -681,7 +681,7 @@ void handleMachineState() {
 
         case kStandby:
             {
-                if (standbyModeRemainingTimeDisplayOffMillis == 0 && u8g2 != nullptr) {
+                if (standbyModeRemainingTimeDisplayOffMillis == 0 && u8g2 != nullptr && !menu->IsOpen()) {
                     u8g2->setPowerSave(1);
                 }
 
@@ -1250,7 +1250,6 @@ void loop() {
 }
 
 void loopPid() {
-
     // Update the temperature:
     temperatureUpdateRunning = false;
 
@@ -1388,7 +1387,10 @@ void loopPid() {
         setpoint = brewSetpoint;
     }
 
-    updateStandbyTimer();
+    if (u8g2 == nullptr || menu == nullptr || !menu->IsOpen()) {
+        updateStandbyTimer();
+    }
+
     handleMachineState();
     hotWaterHandler();
     valveSafetyShutdownCheck();
@@ -1403,7 +1405,7 @@ void loopPid() {
     if (u8g2 != nullptr) {
 
         if (menu != nullptr) {
-            if (!websiteUpdateRunning && !mqttUpdateRunning && !hassioUpdateRunning && !temperatureUpdateRunning && (standbyModeRemainingTimeDisplayOffMillis > 0)) {
+            if (!websiteUpdateRunning && !mqttUpdateRunning && !hassioUpdateRunning && !temperatureUpdateRunning) {
                 menuLoop();
             }
         }
