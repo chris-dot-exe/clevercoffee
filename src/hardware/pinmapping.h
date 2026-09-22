@@ -22,7 +22,6 @@
 #define PIN_MENU_OUT_B 4 // Menu Input - Rotary encoder Output B / CLK pin or up button
 #define PIN_MENU_ENTER 3 // Menu Input - Rotary encoder switch or enter button
 
-
 // Sensors
 #define PIN_TEMPSENSOR      16
 #define PIN_WATERTANKSENSOR 23

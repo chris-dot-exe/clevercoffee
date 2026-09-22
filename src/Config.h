@@ -12,10 +12,10 @@
 #include "defaults.h"
 #include "hardware/Relay.h"
 #include "hardware/Switch.h"
-#include <mutex>
 #include <ArduinoJson.h>
 #include <LittleFS.h>
 #include <map>
+#include <mutex>
 #include <utility>
 
 class Config {
@@ -334,8 +334,8 @@ class Config {
             _configDefs.emplace("hardware.oled.enabled", ConfigDef::forBool(true));
             _configDefs.emplace("hardware.oled.type", ConfigDef::forInt(0, 0, 1));
             _configDefs.emplace("hardware.oled.address", ConfigDef::forInt(0, 0, 1));
-            _configDefs.emplace("hardware.oled.menu.input", ConfigDef::forInt(1,0,1));
-            _configDefs.emplace("hardware.oled.menu.encoder_type", ConfigDef::forInt(1,0,2));
+            _configDefs.emplace("hardware.oled.menu.input", ConfigDef::forInt(1, 0, 1));
+            _configDefs.emplace("hardware.oled.menu.encoder_type", ConfigDef::forInt(1, 0, 2));
 
             // Hardware - Relays
             _configDefs.emplace("hardware.relays.heater.trigger_type", ConfigDef::forInt(Relay::HIGH_TRIGGER, 0, 1));
