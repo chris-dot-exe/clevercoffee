@@ -219,11 +219,6 @@ PID bPID(&temperature, &pidOutput, &setpoint, aggKp, aggKi, aggKd, 1, DIRECT);
 #include "brewHandler.h"
 #include "hotWaterHandler.h"
 
-// TODO menu
-// SysPara<uint8_t> sysParaFeaturePidOffLogo(&featurePidOffLogo, 0, 1, STO_ITEM_FEATURE_PID_OFF_LOGO);
-// SysPara<uint8_t> sysParaDisplayMenuInvert(&menuInputInvert, 0, 1, STO_ITEM_MENU_INPUT_INVERT);
-// SysPara<uint8_t> sysParaDisplayMenuScrollInvert(&menuScrollInvert, 0, 1, STO_ITEM_MENU_SCROLL_INVERT);
-
 // Other variables
 boolean emergencyStop = false;                // Emergency stop if temperature is too high
 constexpr double EmergencyStopTemp = 145;     // Temp EmergencyStopTemp

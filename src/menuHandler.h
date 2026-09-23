@@ -37,16 +37,35 @@ inline std::vector<std::function<void()>>& getMenuVarUpdaters() {
 }
 
 template <typename T>
-T& getMenuVar(const std::string& paramId) {
-    static std::map<std::string, T> menuVars;
+T& getMenuVar(const char* paramId) {
+    struct Entry {
+        const char* id;
+        T value;
+    };
+    static Entry menuVars[100];
+    static int count = 0;
 
-    if (menuVars.find(paramId) == menuVars.end()) {
-        menuVars[paramId] = config.get<T>(paramId.c_str());
-
-        getMenuVarUpdaters().push_back([paramId]() { menuVars[paramId] = config.get<T>(paramId.c_str()); });
+    for (int i = 0; i < count; i++) {
+        if (strcmp(menuVars[i].id, paramId) == 0) {
+            return menuVars[i].value;
+        }
     }
 
-    return menuVars[paramId];
+    if (count < 100) {
+        menuVars[count].id = paramId;
+        menuVars[count].value = config.get<T>(paramId);
+
+        T& ref = menuVars[count].value;
+        getMenuVarUpdaters().push_back([paramId, &ref]() {
+            ref = config.get<T>(paramId);
+        });
+
+        return menuVars[count++].value;
+    }
+
+    // Fallback if array is full
+    static T dummy;
+    return dummy;
 }
 
 inline void syncMenuVars() {
@@ -208,20 +227,7 @@ void initMenu(U8G2& display) {
             if (ev.pin == menuEnterPin->getPinNumber()) {
                 LOG(DEBUG, "Menu: Enter");
 
-                // if (standbyModeRemainingTimeMillis == 0) {
-                //     display.setPowerSave(0);
-                //     pidON = true;
-                //     if (steamON) {
-                //         machineState = kSteam;
-                //     }
-                //     else if (checkBrewActive()) {
-                //         machineState = kBrew;
-                //     }
-                //     else {
-                //         machineState = kPidDisabled;
-                //     }
-                //     return;
-                // }
+
                 if (ev.event == EventState::STATE_DOWN) {}
                 menu->Event(EVENT_ENTER, EventState(ev.event));
             }
@@ -350,86 +356,86 @@ void initMenu(U8G2& display) {
 
     Menu* m_hw_relay = new Menu(display);
     m_hw_relay
-        ->AddEnumItem("Heater Trigger", "Heater Trigger", getMenuEnumOptions("hardware.relays.heater.trigger_type"), getMenuEnumCount("hardware.relays.heater.trigger_type"), getMenuVar<uint8_t>("hw.relay.heater_trigger"),
-                      makeSaveCallback<int>("hardware.relays.heater.trigger_type"))
+        ->AddEnumItem("Heater Trigger", "Heater Trigger", getMenuEnumOptions("hardware.relays.heater.trigger_type"), getMenuEnumCount("hardware.relays.heater.trigger_type"), getMenuVar<uint8_t>("hardware.relays.heater.trigger_type"),
+                      makeSaveCallback<uint8_t>("hardware.relays.heater.trigger_type"))
         ->SetConfirm("Change need reboot!", reboot);
     m_hw_relay
-        ->AddEnumItem("Valve Trigger", "Valve Trigger", getMenuEnumOptions("hardware.relays.valve.trigger_type"), getMenuEnumCount("hardware.relays.valve.trigger_type"), getMenuVar<uint8_t>("hw.relay.valve_trigger"),
-                      makeSaveCallback<int>("hardware.relays.valve.trigger_type"))
+        ->AddEnumItem("Valve Trigger", "Valve Trigger", getMenuEnumOptions("hardware.relays.valve.trigger_type"), getMenuEnumCount("hardware.relays.valve.trigger_type"), getMenuVar<uint8_t>("hardware.relays.valve.trigger_type"),
+                      makeSaveCallback<uint8_t>("hardware.relays.valve.trigger_type"))
         ->SetConfirm("Change need reboot!", reboot);
     m_hw_relay
-        ->AddEnumItem("Pump Trigger", "Pump Trigger", getMenuEnumOptions("hardware.relays.pump.trigger_type"), getMenuEnumCount("hardware.relays.pump.trigger_type"), getMenuVar<uint8_t>("hw.relay.pump_trigger"),
-                      makeSaveCallback<int>("hardware.relays.pump.trigger_type"))
+        ->AddEnumItem("Pump Trigger", "Pump Trigger", getMenuEnumOptions("hardware.relays.pump.trigger_type"), getMenuEnumCount("hardware.relays.pump.trigger_type"), getMenuVar<uint8_t>("hardware.relays.pump.trigger_type"),
+                      makeSaveCallback<uint8_t>("hardware.relays.pump.trigger_type"))
         ->SetConfirm("Change need reboot!", reboot);
     m_hw_relay->AddBackItem("Back", bitmap_icon_back);
 
     Menu* m_hw_switch = new Menu(display);
-    m_hw_switch->AddToggleItem("Brew Switch", makeSaveCallback("hardware.switches.brew.enabled", getMenuVar<bool>("hw.switches.brew.enabled")), getMenuVar<bool>("hw.switches.brew.enabled"))
+    m_hw_switch->AddToggleItem("Brew Switch", makeSaveCallback("hardware.switches.brew.enabled", getMenuVar<bool>("hardware.switches.brew.enabled")), getMenuVar<bool>("hardware.switches.brew.enabled"))
         ->SetConfirm("Change need reboot!", reboot);
     m_hw_switch
-        ->AddEnumItem("Brew Switch Type", "Brew Switch Type", getMenuEnumOptions("hardware.switches.brew.type"), getMenuEnumCount("hardware.switches.brew.type"), getMenuVar<uint8_t>("hw.switches.brew.type"),
-                      makeSaveCallback<int>("hardware.switches.brew.type"))
+        ->AddEnumItem("Brew Switch Type", "Brew Switch Type", getMenuEnumOptions("hardware.switches.brew.type"), getMenuEnumCount("hardware.switches.brew.type"), getMenuVar<uint8_t>("hardware.switches.brew.type"),
+                      makeSaveCallback<uint8_t>("hardware.switches.brew.type"))
         ->SetConfirm("Change need reboot!", reboot);
     m_hw_switch
-        ->AddEnumItem("Brew Switch Mode", "Brew Switch Mode", getMenuEnumOptions("hardware.switches.brew.mode"), getMenuEnumCount("hardware.switches.brew.mode"), getMenuVar<uint8_t>("hw.switches.brew.mode"),
-                      makeSaveCallback<int>("hardware.switches.brew.mode"))
+        ->AddEnumItem("Brew Switch Mode", "Brew Switch Mode", getMenuEnumOptions("hardware.switches.brew.mode"), getMenuEnumCount("hardware.switches.brew.mode"), getMenuVar<uint8_t>("hardware.switches.brew.mode"),
+                      makeSaveCallback<uint8_t>("hardware.switches.brew.mode"))
         ->SetConfirm("Change need reboot!", reboot);
-    m_hw_switch->AddToggleItem("Steam Switch", makeSaveCallback("hardware.switches.steam.enabled", getMenuVar<bool>("hw.switches.steam.enabled")), getMenuVar<bool>("hw.switches.steam.enabled"))
-        ->SetConfirm("Change need reboot!", reboot);
-    m_hw_switch
-        ->AddEnumItem("Steam Switch Type", "Steam Switch Type", getMenuEnumOptions("hardware.switches.steam.type"), getMenuEnumCount("hardware.switches.steam.type"), getMenuVar<uint8_t>("hw.switches.steam.type"),
-                      makeSaveCallback<int>("hardware.switches.steam.type"))
+    m_hw_switch->AddToggleItem("Steam Switch", makeSaveCallback("hardware.switches.steam.enabled", getMenuVar<bool>("hardware.switches.steam.enabled")), getMenuVar<bool>("hardware.switches.steam.enabled"))
         ->SetConfirm("Change need reboot!", reboot);
     m_hw_switch
-        ->AddEnumItem("Steam Switch Mode", "Steam Switch Mode", getMenuEnumOptions("hardware.switches.steam.mode"), getMenuEnumCount("hardware.switches.steam.mode"), getMenuVar<uint8_t>("hw.switches.steam.mode"),
-                      makeSaveCallback<int>("hardware.switches.steam.mode"))
-        ->SetConfirm("Change need reboot!", reboot);
-    m_hw_switch->AddToggleItem("Power Switch", makeSaveCallback("hardware.switches.power.enabled", getMenuVar<bool>("hw.switches.power.enabled")), getMenuVar<bool>("hw.switches.power.enabled"));
-    m_hw_switch
-        ->AddEnumItem("Power Switch Type", "Power Switch Type", getMenuEnumOptions("hardware.switches.power.type"), getMenuEnumCount("hardware.switches.power.type"), getMenuVar<uint8_t>("hw.switches.power.type"),
-                      makeSaveCallback<int>("hardware.switches.power.type"))
+        ->AddEnumItem("Steam Switch Type", "Steam Switch Type", getMenuEnumOptions("hardware.switches.steam.type"), getMenuEnumCount("hardware.switches.steam.type"), getMenuVar<uint8_t>("hardware.switches.steam.type"),
+                      makeSaveCallback<uint8_t>("hardware.switches.steam.type"))
         ->SetConfirm("Change need reboot!", reboot);
     m_hw_switch
-        ->AddEnumItem("Power Switch Mode", "Power Switch Mode", getMenuEnumOptions("hardware.switches.power.mode"), getMenuEnumCount("hardware.switches.power.mode"), getMenuVar<uint8_t>("hw.switches.power.mode"),
-                      makeSaveCallback<int>("hardware.switches.power.mode"))
+        ->AddEnumItem("Steam Switch Mode", "Steam Switch Mode", getMenuEnumOptions("hardware.switches.steam.mode"), getMenuEnumCount("hardware.switches.steam.mode"), getMenuVar<uint8_t>("hardware.switches.steam.mode"),
+                      makeSaveCallback<uint8_t>("hardware.switches.steam.mode"))
         ->SetConfirm("Change need reboot!", reboot);
-    m_hw_switch->AddToggleItem("Hot Water Switch", makeSaveCallback("hardware.switches.hotwater.enabled", getMenuVar<bool>("hw.switches.hotwater.enabled")), getMenuVar<bool>("hw.switches.hotwater.enabled"))
+    m_hw_switch->AddToggleItem("Power Switch", makeSaveCallback("hardware.switches.power.enabled", getMenuVar<bool>("hardware.switches.power.enabled")), getMenuVar<bool>("hardware.switches.power.enabled"));
+    m_hw_switch
+        ->AddEnumItem("Power Switch Type", "Power Switch Type", getMenuEnumOptions("hardware.switches.power.type"), getMenuEnumCount("hardware.switches.power.type"), getMenuVar<uint8_t>("hardware.switches.power.type"),
+                      makeSaveCallback<uint8_t>("hardware.switches.power.type"))
+        ->SetConfirm("Change need reboot!", reboot);
+    m_hw_switch
+        ->AddEnumItem("Power Switch Mode", "Power Switch Mode", getMenuEnumOptions("hardware.switches.power.mode"), getMenuEnumCount("hardware.switches.power.mode"), getMenuVar<uint8_t>("hardware.switches.power.mode"),
+                      makeSaveCallback<uint8_t>("hardware.switches.power.mode"))
+        ->SetConfirm("Change need reboot!", reboot);
+    m_hw_switch->AddToggleItem("Hot Water Switch", makeSaveCallback("hardware.switches.hotwater.enabled", getMenuVar<bool>("hardware.switches.hotwater.enabled")), getMenuVar<bool>("hardware.switches.hotwater.enabled"))
         ->SetConfirm("Change need reboot!", reboot);
     m_hw_switch
         ->AddEnumItem("Hot Water Switch Type", "Hot Water Switch Type", getMenuEnumOptions("hardware.switches.hotwater.type"), getMenuEnumCount("hardware.switches.hotwater.type"),
-                      getMenuVar<uint8_t>("hw.switches.hotwater.type"), makeSaveCallback<int>("hardware.switches.hotwater.type"))
+                      getMenuVar<uint8_t>("hardware.switches.hotwater.type"), makeSaveCallback<uint8_t>("hardware.switches.hotwater.type"))
         ->SetConfirm("Change need reboot!", reboot);
     m_hw_switch
         ->AddEnumItem("Hot Water Switch Mode", "Hot Water Switch Mode", getMenuEnumOptions("hardware.switches.hotwater.mode"), getMenuEnumCount("hardware.switches.hotwater.mode"),
-                      getMenuVar<uint8_t>("hw.switches.hotwater.mode"), makeSaveCallback<int>("hardware.switches.hotwater.mode"))
+                      getMenuVar<uint8_t>("hardware.switches.hotwater.mode"), makeSaveCallback<uint8_t>("hardware.switches.hotwater.mode"))
         ->SetConfirm("Change need reboot!", reboot);
     m_hw_switch->AddBackItem("Back", bitmap_icon_back);
 
     Menu* m_leds = new Menu(display);
-    m_leds->AddToggleItem("Status LED", makeSaveCallback<bool>("hardware.leds.status.enabled"), getMenuVar<bool>("hw.leds.status.enabled"))->SetConfirm("Change need reboot!", reboot);
-    m_leds->AddToggleItem("Status LED Invert", makeSaveCallback<bool>("hardware.leds.status.invert"), getMenuVar<bool>("hw.leds.status.invert"))->SetConfirm("Change need reboot!", reboot);
-    m_leds->AddToggleItem("Brew LED", makeSaveCallback<bool>("hardware.leds.brew.enabled"), getMenuVar<bool>("hw.leds.brew.enabled"))->SetConfirm("Change need reboot!", reboot);
-    m_leds->AddToggleItem("Brew LED Invert", makeSaveCallback<bool>("hardware.leds.brew.invert"), getMenuVar<bool>("hw.leds.brew.invert"))->SetConfirm("Change need reboot!", reboot);
-    m_leds->AddToggleItem("Steam LED", makeSaveCallback<bool>("hardware.leds.steam.enabled"), getMenuVar<bool>("hw.leds.steam.enabled"))->SetConfirm("Change need reboot!", reboot);
-    m_leds->AddToggleItem("Steam LED Invert", makeSaveCallback<bool>("hardware.leds.steam.invert"), getMenuVar<bool>("hw.leds.steam.invert"))->SetConfirm("Change need reboot!", reboot);
+    m_leds->AddToggleItem("Status LED", makeSaveCallback<bool>("hardware.leds.status.enabled"), getMenuVar<bool>("hardware.leds.status.enabled"))->SetConfirm("Change need reboot!", reboot);
+    m_leds->AddToggleItem("Status LED Invert", makeSaveCallback<bool>("hardware.leds.status.invert"), getMenuVar<bool>("hardware.leds.status.invert"))->SetConfirm("Change need reboot!", reboot);
+    m_leds->AddToggleItem("Brew LED", makeSaveCallback<bool>("hardware.leds.brew.enabled"), getMenuVar<bool>("hardware.leds.brew.enabled"))->SetConfirm("Change need reboot!", reboot);
+    m_leds->AddToggleItem("Brew LED Invert", makeSaveCallback<bool>("hardware.leds.brew.invert"), getMenuVar<bool>("hardware.leds.brew.invert"))->SetConfirm("Change need reboot!", reboot);
+    m_leds->AddToggleItem("Steam LED", makeSaveCallback<bool>("hardware.leds.steam.enabled"), getMenuVar<bool>("hardware.leds.steam.enabled"))->SetConfirm("Change need reboot!", reboot);
+    m_leds->AddToggleItem("Steam LED Invert", makeSaveCallback<bool>("hardware.leds.steam.invert"), getMenuVar<bool>("hardware.leds.steam.invert"))->SetConfirm("Change need reboot!", reboot);
 
     m_leds->AddBackItem("Back", bitmap_icon_back);
 
     Menu* m_sensors = new Menu(display);
     m_sensors
         ->AddEnumItem("Temp. Sensor Type", "Temp. Sensor Type", getMenuEnumOptions("hardware.sensors.temperature.type"), getMenuEnumCount("hardware.sensors.temperature.type"),
-                      getMenuVar<uint8_t>("hw.sensors.temperature.type"), makeSaveCallback<int>("hardware.sensors.temperature.type"))
+                      getMenuVar<uint8_t>("hardware.sensors.temperature.type"), makeSaveCallback<uint8_t>("hardware.sensors.temperature.type"))
         ->SetConfirm("Change need reboot!", reboot);
-    m_sensors->AddToggleItem("Pressure Sensor", makeSaveCallback("hardware.sensors.pressure.enabled", getMenuVar<bool>("hw.sensors.pressure.enabled")), getMenuVar<bool>("hw.sensors.pressure.enabled"))
+    m_sensors->AddToggleItem("Pressure Sensor", makeSaveCallback("hardware.sensors.pressure.enabled", getMenuVar<bool>("hardware.sensors.pressure.enabled")), getMenuVar<bool>("hardware.sensors.pressure.enabled"))
         ->SetConfirm("Change need reboot!", reboot);
-    m_sensors->AddToggleItem("Watertank Sensor", makeSaveCallback("hardware.sensors.watertank.enabled", getMenuVar<bool>("hw.sensors.watertank.enabled")), getMenuVar<bool>("hw.sensors.watertank.enabled"))
+    m_sensors->AddToggleItem("Watertank Sensor", makeSaveCallback("hardware.sensors.watertank.enabled", getMenuVar<bool>("hardware.sensors.watertank.enabled")), getMenuVar<bool>("hardware.sensors.watertank.enabled"))
         ->SetConfirm("Change need reboot!", reboot);
-    m_sensors->AddEnumItem("Watertank Mode", "Watertank Mode", getMenuEnumOptions("hardware.sensors.watertank.mode"), getMenuEnumCount("hardware.sensors.watertank.mode"), getMenuVar<uint8_t>("hw.sensors.watertank.mode"),
-                           makeSaveCallback<int>("hardware.sensors.watertank.mode"));
-    m_sensors->AddToggleItem("Scale", makeSaveCallback("hardware.sensors.scale.enabled", getMenuVar<bool>("hw.sensors.scale.enabled")), getMenuVar<bool>("hw.sensors.scale.enabled"));
+    m_sensors->AddEnumItem("Watertank Mode", "Watertank Mode", getMenuEnumOptions("hardware.sensors.watertank.mode"), getMenuEnumCount("hardware.sensors.watertank.mode"), getMenuVar<uint8_t>("hardware.sensors.watertank.mode"),
+                           makeSaveCallback<uint8_t>("hardware.sensors.watertank.mode"));
+    m_sensors->AddToggleItem("Scale", makeSaveCallback("hardware.sensors.scale.enabled", getMenuVar<bool>("hardware.sensors.scale.enabled")), getMenuVar<bool>("hardware.sensors.scale.enabled"));
     m_sensors
-        ->AddEnumItem("Scale Type", "Scale Type", getMenuEnumOptions("hardware.sensors.scale.type"), getMenuEnumCount("hardware.sensors.scale.type"), getMenuVar<uint8_t>("hw.sensors.scale.type"),
-                      makeSaveCallback<int>("hardware.sensors.scale.type"))
+        ->AddEnumItem("Scale Type", "Scale Type", getMenuEnumOptions("hardware.sensors.scale.type"), getMenuEnumCount("hardware.sensors.scale.type"), getMenuVar<uint8_t>("hardware.sensors.scale.type"),
+                      makeSaveCallback<uint8_t>("hardware.sensors.scale.type"))
         ->SetConfirm("Change need reboot!", reboot);
     m_sensors
         ->AddInputItem("Scale Samples", "Samples", "", "", SCALE_SAMPLES_MIN, SCALE_SAMPLES_MAX, makeSaveCallback<int>("hardware.sensors.scale.samples"), getMenuVar<double>("hardware.sensors.scale.samples"), 1.0, 5.0, true)
@@ -468,7 +474,7 @@ void initMenu(U8G2& display) {
     Menu* m_system = new Menu(display);
     m_system->AddToggleItem("Offline Mode", makeSaveCallback<bool>("system.offline_mode", getMenuVar<bool>("system.offline_mode")), getMenuVar<bool>("system.offline_mode"));
     m_system->AddToggleItem("Auth", makeSaveCallback<bool>("system.auth.enabled", getMenuVar<bool>("system.auth.enabled")), getMenuVar<bool>("system.auth.enabled"));
-    m_system->AddEnumItem("Log Level", "LogLevel", getMenuEnumOptions("system.log_level"), getMenuEnumCount("system.log_level"), getMenuVar<uint8_t>("system.log_level"), makeSaveCallback<int>("system.log_level"));
+    m_system->AddEnumItem("Log Level", "LogLevel", getMenuEnumOptions("system.log_level"), getMenuEnumCount("system.log_level"), getMenuVar<uint8_t>("system.log_level"), makeSaveCallback<uint8_t>("system.log_level"));
     m_system->AddSubMenu("Debug", *m_system_debug, {config.get<int>("system.log_level") == static_cast<int>(Logger::Level::DEBUG)});
     m_system->AddInfoItem("Info", systemInfo);
     m_system->AddBackItem("Back", bitmap_icon_back);
