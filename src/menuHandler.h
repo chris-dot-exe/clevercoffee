@@ -77,6 +77,8 @@ inline void syncMenuVars() {
 template <typename T>
 auto makeSaveCallback(const char* param, T& value) {
     return [param, &value]() {
+        T oldVal = config.get<T>(param);
+        LOGF(DEBUG, "Saving %s: old=%s, new=%s", param, String(oldVal).c_str(), String(value).c_str());
         if (!ParameterRegistry::getInstance().setParameterValue(param, value)) {
             LOG(ERROR, "Failed to save config to filesystem!");
         }
@@ -86,8 +88,9 @@ auto makeSaveCallback(const char* param, T& value) {
 template <typename T>
 auto makeSaveCallback(const char* paramId) {
     T& valueRef = getMenuVar<T>(paramId);
-
     return [paramId, &valueRef]() {
+        T oldVal = config.get<T>(paramId);
+        LOGF(DEBUG, "Saving %s: old=%s, new=%s", paramId, String(oldVal).c_str(), String(valueRef).c_str());
         if (!ParameterRegistry::getInstance().setParameterValue(paramId, valueRef)) {
             LOG(ERROR, "Failed to save config to filesystem!");
         }
@@ -152,6 +155,8 @@ auto inputInvertActive() {
 
 const auto reboot = []() {
     LOG(DEBUG, "reboot()");
+    ParameterRegistry::getInstance().forceSave();
+    delay(100);
     ESP.restart();
 };
 
